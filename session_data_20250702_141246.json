@@ -1,0 +1,243 @@
+{
+  "session_info": {
+    "session_id": "20250702_141246",
+    "timestamp": "2025-07-02T14:17:47.999621",
+    "total_tests": 8,
+    "system_version": "Voice Readiness Checker v1.0"
+  },
+  "session_metrics": {
+    "pronunciation_analysis": {
+      "mean_score": 57.8,
+      "std_score": 14.9,
+      "min_score": 27.3,
+      "max_score": 73.9
+    },
+    "readiness_analysis": {
+      "mean_score": 81.0,
+      "std_score": 9.8,
+      "status_distribution": {
+        "CUKUP SIAP": 1,
+        "SIAP KERJA": 7
+      }
+    },
+    "system_performance": {
+      "total_tests": 8,
+      "successful_recognitions": 8,
+      "recognition_rate": 100.0
+    },
+    "emotion_distribution": {
+      "calm": 1,
+      "ready": 7
+    }
+  },
+  "test_results": [
+    {
+      "session_id": "20250702_141246",
+      "test_number": 1,
+      "timestamp": "2025-07-02T14:14:00.023172",
+      "target_sentence": "Keselamatan utama",
+      "recognized_text": "utama keselamatan",
+      "pronunciation_score": 64.7,
+      "readiness_score": 59.0,
+      "readiness_status": "CUKUP SIAP",
+      "dominant_emotion": "calm",
+      "emotion_scores": {
+        "ready": 65,
+        "tired": 30,
+        "stressed": 50,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 189.84,
+        "pitch_std": 80.16,
+        "rms_energy": 0.009406,
+        "speech_rate": 0.599,
+        "spectral_centroid_mean": 1439.55
+      },
+      "user_notes": "Test #1"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 2,
+      "timestamp": "2025-07-02T14:14:17.509636",
+      "target_sentence": "Keselamatan utama",
+      "recognized_text": "keselamatan utama keselamatan",
+      "pronunciation_score": 73.9,
+      "readiness_score": 79.0,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 30,
+        "stressed": 50,
+        "calm": 75,
+        "uncertain": 30
+      },
+      "audio_features": {
+        "pitch_mean": 183.59,
+        "pitch_std": 85.18,
+        "rms_energy": 0.010516,
+        "speech_rate": 0.538,
+        "spectral_centroid_mean": 1708.48
+      },
+      "user_notes": "Test #2"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 3,
+      "timestamp": "2025-07-02T14:15:11.834323",
+      "target_sentence": "Tim komunikasi baik",
+      "recognized_text": "kamu langsung ngomong tim komunikasi baik tim",
+      "pronunciation_score": 59.4,
+      "readiness_score": 89.5,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 0,
+        "stressed": 25,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 164.85,
+        "pitch_std": 85.78,
+        "rms_energy": 0.021535,
+        "speech_rate": 0.617,
+        "spectral_centroid_mean": 1159.75
+      },
+      "user_notes": "Test #3"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 4,
+      "timestamp": "2025-07-02T14:15:51.863908",
+      "target_sentence": "Keselamatan utama",
+      "recognized_text": "keselamatan utama keselamatan",
+      "pronunciation_score": 73.9,
+      "readiness_score": 80.5,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 30,
+        "stressed": 25,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 178.24,
+        "pitch_std": 72.39,
+        "rms_energy": 0.018792,
+        "speech_rate": 0.597,
+        "spectral_centroid_mean": 1402.84
+      },
+      "user_notes": "Test #4"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 5,
+      "timestamp": "2025-07-02T14:16:09.458526",
+      "target_sentence": "Saya siap kerja",
+      "recognized_text": "saya siap kerja saya siap kerja saya",
+      "pronunciation_score": 58.8,
+      "readiness_score": 82.0,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 0,
+        "stressed": 50,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 182.01,
+        "pitch_std": 83.83,
+        "rms_energy": 0.030612,
+        "speech_rate": 0.46,
+        "spectral_centroid_mean": 1621.06
+      },
+      "user_notes": "Test #5"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 6,
+      "timestamp": "2025-07-02T14:16:29.242714",
+      "target_sentence": "Saya siap kerja",
+      "recognized_text": "saya siap bekerja saya siap kerja",
+      "pronunciation_score": 62.5,
+      "readiness_score": 82.0,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 0,
+        "stressed": 50,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 150.95,
+        "pitch_std": 81.63,
+        "rms_energy": 0.02345,
+        "speech_rate": 0.441,
+        "spectral_centroid_mean": 1732.77
+      },
+      "user_notes": "Test #6"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 7,
+      "timestamp": "2025-07-02T14:16:45.620749",
+      "target_sentence": "Tim komunikasi baik",
+      "recognized_text": "tim",
+      "pronunciation_score": 27.3,
+      "readiness_score": 80.5,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 30,
+        "stressed": 25,
+        "calm": 75,
+        "uncertain": 50
+      },
+      "audio_features": {
+        "pitch_mean": 177.93,
+        "pitch_std": 83.1,
+        "rms_energy": 0.014365,
+        "speech_rate": 0.679,
+        "spectral_centroid_mean": 1296.26
+      },
+      "user_notes": "Test #7"
+    },
+    {
+      "session_id": "20250702_141246",
+      "test_number": 8,
+      "timestamp": "2025-07-02T14:17:21.100201",
+      "target_sentence": "Saya siap kerja",
+      "recognized_text": "saya",
+      "pronunciation_score": 42.1,
+      "readiness_score": 95.5,
+      "readiness_status": "SIAP KERJA",
+      "dominant_emotion": "ready",
+      "emotion_scores": {
+        "ready": 85,
+        "tired": 0,
+        "stressed": 25,
+        "calm": 75,
+        "uncertain": 30
+      },
+      "audio_features": {
+        "pitch_mean": 154.22,
+        "pitch_std": 95.13,
+        "rms_energy": 0.027274,
+        "speech_rate": 0.52,
+        "spectral_centroid_mean": 1504.35
+      },
+      "user_notes": "Test #8"
+    }
+  ]
+}
