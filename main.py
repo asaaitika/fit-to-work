@@ -69,9 +69,6 @@ try:
 except:
     pass
 
-# # Manual override for cloud deployment - uncomment this line for cloud:
-# AUDIO_MODE = "streamlit_native"  # Force cloud mode
-
 if AUDIO_MODE == "streamlit_native":
     st.info("🌐 Running in cloud mode - using web-based audio input")
 else:
@@ -286,7 +283,7 @@ class RealVoiceChecker:
             for lang_code, lang_name in languages:
                 try:
                     st.info(f"🌍 Trying {lang_name}...")
-                    text = self.recognizer.recognize_google(audio, language=lang_code) # type: ignore
+                    text = self.recognizer.recognize_google(audio, language=lang_code) #type: ignore
                     st.success(f"✅ SUCCESS with {lang_name}: '{text}'")
                     return text.lower().strip()
                 except sr.UnknownValueError:
@@ -316,63 +313,36 @@ class RealVoiceChecker:
         return round(similarity * 100, 1)
     
     def extract_voice_features(self, audio_data):
-        """Extract voice features"""
+        """Extract voice features with multi-criteria null audio detection"""
         if audio_data is None:
-            # Return default features if no audio
+            # Return features that indicate NO AUDIO
             return {
-                'pitch_mean': 150,
-                'pitch_std': 30,
-                'pitch_range': 100,
-                'rms_energy': 0.05,
-                'max_amplitude': 0.1,
-                'energy_variance': 0.005,
-                'speech_rate': 0.5,
+                'pitch_mean': 0,
+                'pitch_std': 0,
+                'pitch_range': 0,
+                'rms_energy': 0,
+                'max_amplitude': 0,
+                'energy_variance': 0,
+                'speech_rate': 0,
                 'mfcc_mean': np.zeros(13),
-                'mfcc_std': np.ones(13),
-                'spectral_centroid_mean': 1500,
-                'spectral_centroid_std': 500,
-                'zcr_mean': 0.05,
-                'zcr_std': 0.02,
-                'silence_ratio': 0.4
+                'mfcc_std': np.zeros(13),
+                'spectral_centroid_mean': 0,
+                'spectral_centroid_std': 0,
+                'zcr_mean': 0,
+                'zcr_std': 0,
+                'silence_ratio': 1.0,  # 100% silence
+                'audio_detected': False
             }
         
         st.info("🔍 Extracting voice features...")
         
         features = {}
         
-        # 1. Pitch Analysis
-        try:
-            pitches, magnitudes = librosa.piptrack(y=audio_data, sr=self.sample_rate, 
-                                                  threshold=0.1, fmin=50, fmax=400)
-            
-            pitch_values = []
-            for t in range(pitches.shape[1]):
-                index = magnitudes[:, t].argmax()
-                pitch = pitches[index, t]
-                if pitch > 0:
-                    pitch_values.append(pitch)
-            
-            if len(pitch_values) > 0:
-                features['pitch_mean'] = np.mean(pitch_values)
-                features['pitch_std'] = np.std(pitch_values)
-                features['pitch_range'] = np.max(pitch_values) - np.min(pitch_values)
-            else:
-                features['pitch_mean'] = 0
-                features['pitch_std'] = 0
-                features['pitch_range'] = 0
-                
-        except Exception as e:
-            st.warning(f"⚠️ Pitch analysis warning: {e}")
-            features['pitch_mean'] = 0
-            features['pitch_std'] = 0
-            features['pitch_range'] = 0
+        # Step 1: Basic amplitude and energy check
+        max_amplitude = np.max(np.abs(audio_data))
+        rms_energy = np.sqrt(np.mean(audio_data**2))
         
-        # 2. Energy Analysis
-        features['rms_energy'] = np.sqrt(np.mean(audio_data**2))
-        features['max_amplitude'] = np.max(np.abs(audio_data))
-        features['energy_variance'] = np.var(audio_data**2)
-        
-        # 3. Speaking Rate Analysis
+        # Step 2: Speech content analysis
         frame_length = int(0.025 * self.sample_rate)
         hop_length = int(0.01 * self.sample_rate)
         
@@ -383,14 +353,99 @@ class RealVoiceChecker:
             energy_frames.append(energy)
         
         energy_frames = np.array(energy_frames)
-        energy_threshold = np.mean(energy_frames) * 0.1
+        if len(energy_frames) > 0:
+            energy_threshold = max(float(np.mean(energy_frames) * 0.5), 0.001)
+            speech_frames = np.sum(energy_frames > energy_threshold)
+            speech_ratio = speech_frames / len(energy_frames)
+        else:
+            speech_ratio = 0
         
-        speech_frames = np.sum(energy_frames > energy_threshold)
-        total_frames = len(energy_frames)
+        # Step 3: Pitch analysis for validation
+        pitch_mean = 0
+        pitch_count = 0
+        pitch_values = []
+        try:
+            pitches, magnitudes = librosa.piptrack(y=audio_data, sr=self.sample_rate, 
+                                                  threshold=0.1, fmin=50, fmax=400)
+            
+            for t in range(pitches.shape[1]):
+                index = magnitudes[:, t].argmax()
+                pitch = pitches[index, t]
+                if pitch > 0:
+                    pitch_values.append(pitch)
+            
+            if len(pitch_values) > 0:
+                pitch_mean = np.mean(pitch_values)
+                pitch_count = len(pitch_values)
+        except:
+            pass
         
-        features['speech_rate'] = speech_frames / total_frames if total_frames > 0 else 0
+        # Step 4: Multi-criteria silence detection
+        silence_criteria = []
         
-        # 4. Spectral Features
+        # Criteria 1: Very low energy
+        if rms_energy < 0.01:
+            silence_criteria.append("Low energy")
+        
+        # Criteria 2: Very low amplitude  
+        if max_amplitude < 0.02:
+            silence_criteria.append("Low amplitude")
+        
+        # Criteria 3: Minimal speech content
+        if speech_ratio < 0.15:
+            silence_criteria.append("Minimal speech")
+        
+        # Criteria 4: No valid pitch detected OR pitch too low for human speech
+        if pitch_count == 0 or (pitch_mean > 0 and pitch_mean < 85):
+            silence_criteria.append("Invalid pitch")
+        
+        # Criteria 5: Total frames with very low pitch detection
+        if pitch_count < (len(energy_frames) * 0.1):  # Less than 10% of frames have detectable pitch
+            silence_criteria.append("Insufficient pitch frames")
+        
+        # If 3 or more criteria indicate silence, classify as no audio
+        if len(silence_criteria) >= 3:
+            st.warning(f"⚠️ Audio classified as silent/noise. Criteria met: {', '.join(silence_criteria)}")
+            st.info(f"📊 Debug: Energy={rms_energy:.6f}, Amplitude={max_amplitude:.6f}, Speech={speech_ratio:.1%}, Pitch={pitch_mean:.1f}Hz ({pitch_count} frames)")
+            return {
+                'pitch_mean': 0,
+                'pitch_std': 0,
+                'pitch_range': 0,
+                'rms_energy': rms_energy,
+                'max_amplitude': max_amplitude,
+                'energy_variance': np.var(audio_data**2),
+                'speech_rate': speech_ratio,
+                'mfcc_mean': np.zeros(13),
+                'mfcc_std': np.zeros(13),
+                'spectral_centroid_mean': 0,
+                'spectral_centroid_std': 0,
+                'zcr_mean': 0,
+                'zcr_std': 0,
+                'silence_ratio': 1.0 - speech_ratio,
+                'audio_detected': False
+            }
+        
+        features['audio_detected'] = True
+        st.success("✅ Valid speech audio detected for analysis")
+        st.info(f"📊 Audio quality: Energy={rms_energy:.4f}, Pitch={pitch_mean:.1f}Hz, Speech={speech_ratio:.1%}")
+        
+        # Continue with full feature extraction for valid audio
+        if len(pitch_values) > 0:
+            features['pitch_mean'] = np.mean(pitch_values)
+            features['pitch_std'] = np.std(pitch_values)
+            features['pitch_range'] = np.max(pitch_values) - np.min(pitch_values)
+        else:
+            features['pitch_mean'] = 0
+            features['pitch_std'] = 0
+            features['pitch_range'] = 0
+        
+        # Energy Analysis
+        features['rms_energy'] = rms_energy
+        features['max_amplitude'] = max_amplitude
+        features['energy_variance'] = np.var(audio_data**2)
+        features['speech_rate'] = speech_ratio
+        
+        # Spectral Features
         try:
             mfccs = librosa.feature.mfcc(y=audio_data, sr=self.sample_rate, n_mfcc=13)
             features['mfcc_mean'] = np.mean(mfccs, axis=1)
@@ -405,20 +460,31 @@ class RealVoiceChecker:
             features['zcr_std'] = np.std(zcr)
         except Exception as e:
             st.warning(f"⚠️ Spectral features warning: {e}")
-            features['spectral_centroid_mean'] = 1500
-            features['zcr_mean'] = 0.05
+            features['spectral_centroid_mean'] = 0
+            features['zcr_mean'] = 0
         
-        # 5. Temporal Features
+        # Temporal Features
         silence_threshold = features['rms_energy'] * 0.1
         silent_frames = np.sum(energy_frames < silence_threshold)
-        features['silence_ratio'] = silent_frames / total_frames if total_frames > 0 else 0
+        features['silence_ratio'] = silent_frames / len(energy_frames) if len(energy_frames) > 0 else 1.0
         
         st.success(f"✅ Extracted {len(features)} voice features")
         return features
     
     def analyze_emotion_patterns(self, features):
-        """Analyze emotion patterns with improved logic"""
+        """Analyze emotion patterns with null audio detection"""
         st.info("🧠 Analyzing emotion patterns...")
+        
+        # Check if audio was actually detected
+        if not features.get('audio_detected', True):
+            st.warning("⚠️ No audio detected - returning baseline scores")
+            return {
+                'ready': 0,
+                'tired': 0,
+                'stressed': 0,
+                'calm': 0,
+                'uncertain': 100  # High uncertainty for no audio
+            }
         
         emotion_scores = {}
         
@@ -489,8 +555,23 @@ class RealVoiceChecker:
         return emotion_scores
     
     def determine_work_readiness(self, emotion_scores, pronunciation_score=None):
-        """Determine work readiness with improved formula"""
+        """Determine work readiness with improved formula and null audio handling"""
         st.info("⚖️ Determining work readiness...")
+        
+        # Check for no audio detected case
+        if emotion_scores.get('uncertain', 0) == 100 and all(score == 0 for key, score in emotion_scores.items() if key != 'uncertain'):
+            st.warning("⚠️ No audio detected - assessment cannot be completed")
+            return {
+                'readiness_score': 0,
+                'base_score': 0,
+                'pronunciation_penalty': 0,
+                'dominant_emotion': 'uncertain',
+                'dominant_score': 100,
+                'status': "BELUM SIAP",
+                'recommendation': "Tidak ada audio terdeteksi - silakan ulangi recording",
+                'color': "🔴",
+                'emotion_breakdown': emotion_scores
+            }
         
         # NEW IMPROVED FORMULA
         # 1. Get dominant emotion first
