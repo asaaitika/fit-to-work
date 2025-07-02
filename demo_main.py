@@ -798,7 +798,17 @@ def main():
 
 def show_home_page():
     """Home page dengan overview"""
-    st.markdown("### 🎯 Overview")
+    st.markdown("### 🎯 System Overview")
+
+    # Deskripsi Aplikasi
+    st.markdown("#### 📋 Tentang Aplikasi")
+    st.markdown("""
+    **Fit-to-Work Voice Readiness Checker** adalah sistem otomatis untuk mengevaluasi kesiapan pekerja 
+    sebelum memulai shift kerja melalui analisis suara dan kognitif yang komprehensif. 
+    
+    Sistem ini dirancang untuk **meningkatkan keselamatan kerja** dengan mengidentifikasi 
+    potensi masalah pada pekerja sebelum mereka memulai aktivitas yang berisiko.
+    """)
     
     st.warning("""
     **Requirements:**
@@ -967,8 +977,6 @@ def show_real_cognitive_tests():
     
     selected_test_name = st.selectbox("Select Test:", list(test_options.keys()))
     selected_test = test_options[selected_test_name]
-    
-    st.markdown(f"#### {selected_test_name}")
     
     # Run the selected test
     if selected_test == 'attention':
