@@ -83,10 +83,10 @@ except:
 # # Manual override for cloud deployment - uncomment this line for cloud:
 # AUDIO_MODE = "streamlit_native"  # Force cloud mode
 
-# if AUDIO_MODE == "streamlit_native":
-#     st.info("🌐 Running in cloud mode - using web-based audio input")
-# else:
-#     st.success("🎤 Running in local mode - using direct microphone access")
+if AUDIO_MODE == "streamlit_native":
+    st.info("🌐 Running in cloud mode - using web-based audio input")
+else:
+    st.success("🎤 Running in local mode - using direct microphone access")
 
 import soundfile as sf
 import librosa
@@ -948,11 +948,11 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🏭 Fit-to-Work Voice Readiness Checker</h1>', unsafe_allow_html=True)
     
-    # Show audio mode indicator
-    if AUDIO_MODE == "streamlit_native":
-        st.info("🌐 Running in Cloud Mode - Using web-based audio input")
-    else:
-        st.success("🎤 Running in Local Mode - Using direct microphone access")
+    # # Show audio mode indicator
+    # if AUDIO_MODE == "streamlit_native":
+    #     st.info("🌐 Running in Cloud Mode - Using web-based audio input")
+    # else:
+    #     st.success("🎤 Running in Local Mode - Using direct microphone access")
     
     # Initialize session state
     if 'assessment_history' not in st.session_state:
