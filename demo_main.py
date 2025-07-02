@@ -19,7 +19,7 @@ import random
 
 # Configure Streamlit
 st.set_page_config(
-    page_title="Fit-to-Work Voice Checker - Real System",
+    page_title="Fit-to-Work Voice Checker - System",
     page_icon="🏭",
     layout="wide"
 )
@@ -60,7 +60,7 @@ st.markdown("""
 
 class RealVoiceChecker:
     """
-    Real Voice Checker
+    Voice Checker
     """
     def __init__(self, sample_rate=16000):
         self.sample_rate = sample_rate
@@ -84,15 +84,15 @@ class RealVoiceChecker:
             "Tim komunikasi baik"
         ]
         
-        print("🔧 Real Voice Checker initialized")
+        print("🔧 Voice Checker initialized")
     
     def record_audio_streamlit(self, duration=6):
-        """Real audio recording untuk Streamlit"""
+        """Audio recording untuk Streamlit"""
         try:
             st.info(f"🎤 Recording selama {duration} detik...")
             st.info("📢 Ucapkan kalimat target dengan jelas!")
             
-            # Real audio recording menggunakan sounddevice
+            # Audio recording menggunakan sounddevice
             audio_data = sd.rec(int(duration * self.sample_rate), 
                               samplerate=self.sample_rate, 
                               channels=1, 
@@ -371,7 +371,7 @@ class RealVoiceChecker:
 
 # Cognitive Assessment Classes
 class RealCognitiveAssessment:
-    """Real cognitive assessment dengan interactive Streamlit UI"""
+    """Cognitive assessment dengan interactive Streamlit UI"""
     
     def __init__(self):
         self.cognitive_tests = {
@@ -381,10 +381,10 @@ class RealCognitiveAssessment:
             'math': self.simple_math_test_streamlit,
             'sequence': self.sequence_test_streamlit
         }
-        print("🧠 Real Cognitive Assessment Module initialized")
+        print("🧠 Cognitive Assessment Module initialized")
     
     def attention_test_streamlit(self):
-        """REAL attention test dengan Streamlit UI"""
+        """Attention test dengan Streamlit UI"""
         st.subheader("🎯 ATTENTION TEST")
         st.write("Hitung berapa huruf 'A' dalam teks berikut:")
         
@@ -433,7 +433,7 @@ class RealCognitiveAssessment:
         return None
     
     def memory_test_streamlit(self):
-        """REAL memory test dengan Streamlit UI"""
+        """Memory test dengan Streamlit UI"""
         st.subheader("🧠 MEMORY TEST")
         
         if 'memory_sequence' not in st.session_state:
@@ -490,7 +490,7 @@ class RealCognitiveAssessment:
         return None
     
     def reaction_time_test_streamlit(self):
-        """REAL reaction time test"""
+        """Reaction time test"""
         st.subheader("⚡ REACTION TIME TEST")
         st.write("Klik tombol 'REACT!' secepat mungkin saat melihat '🚨 GO!'")
         
@@ -546,7 +546,7 @@ class RealCognitiveAssessment:
         return None
     
     def simple_math_test_streamlit(self):
-        """REAL math test"""
+        """Math test"""
         st.subheader("🔢 MATH TEST")
         
         if 'math_problem' not in st.session_state:
@@ -598,7 +598,7 @@ class RealCognitiveAssessment:
         return None
     
     def sequence_test_streamlit(self):
-        """REAL sequence test"""
+        """Sequence test"""
         st.subheader("🔄 SEQUENCE TEST")
         
         if 'sequence_pattern' not in st.session_state:
@@ -744,7 +744,7 @@ class RealCognitiveAssessment:
 
 # Main Streamlit Application
 def main():
-    """Main Streamlit application dengan REAL functionality"""
+    """Main Streamlit application"""
     
     # Header
     st.markdown('<h1 class="main-header">🏭 Fit-to-Work Voice Readiness Checker</h1>', unsafe_allow_html=True)
@@ -754,26 +754,46 @@ def main():
         st.session_state.assessment_history = []
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 'home'
-    
+
     # Sidebar navigation
     st.sidebar.title("🧭 Navigation")
-    page = st.sidebar.selectbox("Choose Mode:", [
-        "🏠 Home", 
-        "🎤 Voice Analysis", 
-        "🧠 Cognitive Tests", 
-        "📊 Complete Assessment",
-        "📈 Results Dashboard"
-    ])
     
-    if page == "🏠 Home":
+    # Map session state to selectbox options
+    page_mapping = {
+        'home': "🏠 Home",
+        'voice': "🎤 Test Voice Analysis",
+        'cognitive': "🧠 Test Cognitive Tests",
+        'complete': "📊 Complete Assessment",
+        'dashboard': "📈 Results Dashboard"
+    }
+    
+    # Set selectbox based on current_page session state
+    current_selectbox_value = page_mapping.get(st.session_state.current_page, "🏠 Home")
+    
+    # Sidebar selectbox
+    page = st.sidebar.selectbox(
+        "Choose Mode:", 
+        list(page_mapping.values()),
+        index=list(page_mapping.values()).index(current_selectbox_value)
+    )
+    
+    # Update session state when selectbox changes
+    reverse_mapping = {v: k for k, v in page_mapping.items()}
+    new_page_key = reverse_mapping[page]
+    
+    if st.session_state.current_page != new_page_key:
+        st.session_state.current_page = new_page_key
+    
+    # Route based on current page
+    if st.session_state.current_page == 'home':
         show_home_page()
-    elif page == "🎤 Voice Analysis":
+    elif st.session_state.current_page == 'voice':
         show_real_voice_analysis()
-    elif page == "🧠 Cognitive Tests":
+    elif st.session_state.current_page == 'cognitive':
         show_real_cognitive_tests()
-    elif page == "📊 Complete Assessment":
+    elif st.session_state.current_page == 'complete':
         show_real_complete_assessment()
-    else:
+    else:  # dashboard
         show_results_dashboard()
 
 def show_home_page():
@@ -842,8 +862,8 @@ def show_home_page():
         st.success("🌐 Streamlit: Online")
 
 def show_real_voice_analysis():
-    """Real voice analysis page"""
-    st.markdown("### 🎤 Real Voice Analysis")
+    """voice analysis page"""
+    st.markdown("### 🎤 Voice Analysis")
     
     checker = RealVoiceChecker()
     
@@ -854,12 +874,12 @@ def show_real_voice_analysis():
         checker.sample_sentences
     )
     
-    # Step 2: Real audio recording
+    # Step 2: audio recording
     st.markdown("#### Step 2: Record Your Voice")
     st.info(f"📝 **Say this sentence:** \"{target_sentence}\"")
     
-    if st.button("🎤 Start Real Recording", type="primary"):
-        # Real audio recording
+    if st.button("🎤 Start Recording", type="primary"):
+        # audio recording
         audio_data = checker.record_audio_streamlit(duration=6)
         
         if audio_data is not None:
@@ -867,18 +887,18 @@ def show_real_voice_analysis():
             temp_audio_file = checker.save_temp_audio(audio_data)
             
             try:
-                # Step 3: Real speech recognition
+                # Step 3: speech recognition
                 st.markdown("#### Step 3: Speech Recognition")
                 recognized_text = checker.speech_to_text(temp_audio_file)
                 
                 # Step 4: Calculate pronunciation score
                 pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
                 
-                # Step 5: Real voice feature extraction
+                # Step 5: voice feature extraction
                 st.markdown("#### Step 4: Voice Feature Extraction")
                 features = checker.extract_voice_features(audio_data)
                 
-                # Step 6: Real emotion analysis
+                # Step 6: Emotion analysis
                 st.markdown("#### Step 5: Emotion Analysis")
                 emotion_scores = checker.analyze_emotion_patterns(features)
                 voice_result = checker.determine_work_readiness(emotion_scores)
@@ -930,8 +950,8 @@ def show_real_voice_analysis():
                 checker.cleanup_temp_file(temp_audio_file)
 
 def show_real_cognitive_tests():
-    """Real cognitive tests page"""
-    st.markdown("### 🧠 Real Cognitive Assessment")
+    """cognitive tests page"""
+    st.markdown("### 🧠 Cognitive Assessment")
     
     cognitive_assessment = RealCognitiveAssessment()
     
@@ -972,8 +992,8 @@ def show_real_cognitive_tests():
         st.session_state.individual_test_results.append(result)
 
 def show_real_complete_assessment():
-    """Real complete assessment workflow"""
-    st.markdown("### 📊 Complete Real Assessment")
+    """complete assessment workflow"""
+    st.markdown("### 📊 Complete Assessment")
     
     # Initialize assessment state
     if 'complete_assessment_step' not in st.session_state:
@@ -983,8 +1003,8 @@ def show_real_complete_assessment():
         st.markdown("#### 🎯 Complete Fit-to-Work Assessment")
         st.info("""
         This assessment includes:
-        1. **Real Voice Analysis** (6-second recording)
-        2. **Real Cognitive Battery** (3 tests)
+        1. **Voice Analysis** (6-second recording)
+        2. **Cognitive Battery** (3 tests)
         3. **Final Integration** (weighted scoring)
         
         Total time: ~5-7 minutes
