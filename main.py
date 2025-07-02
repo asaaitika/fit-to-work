@@ -1,7 +1,3 @@
-# Tahap 2: Voice Readiness Checker - Speech Recognition & Text Comparison
-# Install packages tambahan:
-# pip install SpeechRecognition difflib
-
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
@@ -34,21 +30,15 @@ class VoiceReadinessChecker:
         self.sample_rate = sample_rate
         self.recognizer = sr.Recognizer()
         
-        # Optimisasi untuk speech recognition yang lebih baik
-        self.recognizer.energy_threshold = 200  # Lebih sensitif
-        self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.8  # Tunggu lebih lama antar kata
-        self.recognizer.phrase_threshold = 0.3  # Sensitivitas frasa
-        self.recognizer.non_speaking_duration = 0.8  # Durasi silence sebelum stop
+        print("🔧 Initializing with proven settings...")
         
-        # Sample sentences untuk latihan
-        # Kalimat ini dirancang untuk menguji berbagai aspek pronunciation
+        # Kalimat contoh yang pendek dan mudah
         self.sample_sentences = [
-            "Saya siap bekerja dengan fokus dan konsentrasi penuh",
-            "Keselamatan kerja adalah prioritas utama saya hari ini",
-            "Saya dalam kondisi sehat dan siap melaksanakan tugas",
-            "Peralatan keselamatan sudah saya periksa dengan teliti",
-            "Komunikasi dengan tim akan saya jaga dengan baik"
+            "Saya siap kerja",
+            "Keselamatan utama", 
+            "Kondisi sehat",
+            "Peralatan aman",
+            "Tim komunikasi baik"
         ]
     
     def record_audio(self, duration=8):
@@ -80,38 +70,38 @@ class VoiceReadinessChecker:
         return temp_file.name
     
     def speech_to_text(self, audio_file_path):
-        """Convert speech ke text menggunakan Google Speech Recognition dengan optimisasi"""
+        """Speech recognition dengan ambient noise adjustment"""
         try:
+            print("🤖 Memproses speech recognition...")
+            
             with sr.AudioFile(audio_file_path) as source:
                 print("🔧 Adjusting for ambient noise...")
-                # Adjust untuk ambient noise lebih lama
-                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)
                 
                 print("👂 Listening to full audio...")
-                # Listen ke seluruh audio file, tidak hanya sebagian
-                audio = self.recognizer.listen(source, timeout=10, phrase_time_limit=15)
-                
-                print("📡 Sending to Google Speech API...")
+                audio = self.recognizer.listen(source)  # Simple approach
+                print("✅ Audio loaded successfully")
             
-            # Coba beberapa language model
-            try:
-                # Coba dengan bahasa Indonesia dulu
-                text = self.recognizer.recognize_google(audio, language='id-ID')  # type: ignore
-                print(f"✅ Recognized (ID): {text}")
-                return text.lower().strip()
-            except (sr.UnknownValueError, sr.RequestError):
-                print("⚠️ Trying with English language model...")
-                # Fallback ke English jika Indonesia gagal
-                text = self.recognizer.recognize_google(audio, language='en-US')  # type: ignore
-                print(f"✅ Recognized (EN): {text}")
-                return text.lower().strip()
+            print("📡 Calling Google Speech API...")
             
-        except sr.UnknownValueError:
-            print("❌ Speech tidak terdeteksi sama sekali")
+            languages = [
+                ('id-ID', 'Indonesian'),
+                ('en-US', 'English')
+            ]
+            
+            for lang_code, lang_name in languages:
+                try:
+                    print(f"🌍 Trying {lang_name}...")
+                    text = self.recognizer.recognize_google(audio, language=lang_code)  # type: ignore
+                    print(f"✅ SUCCESS with {lang_name}: '{text}'")
+                    return text.lower().strip()
+                except sr.UnknownValueError:
+                    print(f"❌ {lang_name}: Could not understand audio")
+                except sr.RequestError as e:
+                    print(f"❌ {lang_name}: API Error - {e}")
+            
             return "TIDAK_TERDETEKSI"
-        except sr.RequestError as e:
-            print(f"❌ Error Google Speech Recognition API: {e}")
-            return "ERROR_API"
+            
         except Exception as e:
             print(f"❌ Error speech recognition: {e}")
             return "ERROR"
@@ -234,8 +224,7 @@ def test_speech_recognition():
     input("Tekan Enter untuk mulai recording...")
     
     try:
-        # Record audio (durasi diperpanjang)
-        audio_data = checker.record_audio(duration=8)
+        audio_data = checker.record_audio(duration=5)
         
         # Simpan ke temporary file
         temp_audio_file = checker.save_temp_audio(audio_data)
