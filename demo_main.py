@@ -385,7 +385,6 @@ class RealCognitiveAssessment:
     
     def attention_test_streamlit(self):
         """Attention test dengan Streamlit UI"""
-        st.subheader("🎯 ATTENTION TEST")
         st.write("Hitung berapa huruf 'A' dalam teks berikut:")
         
         texts = [
@@ -434,8 +433,7 @@ class RealCognitiveAssessment:
     
     def memory_test_streamlit(self):
         """Memory test dengan Streamlit UI"""
-        st.subheader("🧠 MEMORY TEST")
-        
+
         if 'memory_sequence' not in st.session_state:
             sequence_length = random.randint(4, 6)
             st.session_state.memory_sequence = [random.randint(1, 9) for _ in range(sequence_length)]
@@ -491,7 +489,6 @@ class RealCognitiveAssessment:
     
     def reaction_time_test_streamlit(self):
         """Reaction time test"""
-        st.subheader("⚡ REACTION TIME TEST")
         st.write("Klik tombol 'REACT!' secepat mungkin saat melihat '🚨 GO!'")
         
         if 'reaction_waiting' not in st.session_state:
@@ -547,7 +544,6 @@ class RealCognitiveAssessment:
     
     def simple_math_test_streamlit(self):
         """Math test"""
-        st.subheader("🔢 MATH TEST")
         
         if 'math_problem' not in st.session_state:
             problems = [
@@ -599,7 +595,6 @@ class RealCognitiveAssessment:
     
     def sequence_test_streamlit(self):
         """Sequence test"""
-        st.subheader("🔄 SEQUENCE TEST")
         
         if 'sequence_pattern' not in st.session_state:
             patterns = [
@@ -761,8 +756,8 @@ def main():
     # Map session state to selectbox options
     page_mapping = {
         'home': "🏠 Home",
-        'voice': "🎤 Test Voice Analysis",
-        'cognitive': "🧠 Test Cognitive Tests",
+        'voice': "🎤 Voice Analysis Test",
+        'cognitive': "🧠 Cognitive Test",
         'complete': "📊 Complete Assessment",
         'dashboard': "📈 Results Dashboard"
     }
@@ -771,18 +766,28 @@ def main():
     current_selectbox_value = page_mapping.get(st.session_state.current_page, "🏠 Home")
     
     # Sidebar selectbox
+    if 'previous_page' not in st.session_state:
+        st.session_state.previous_page = current_selectbox_value
+
     page = st.sidebar.selectbox(
         "Choose Mode:", 
         list(page_mapping.values()),
         index=list(page_mapping.values()).index(current_selectbox_value)
     )
+
+    # Check if page has changed
+    if page != st.session_state.previous_page:
+        st.session_state.previous_page = page
+        # Force immediate update
+        reverse_mapping = {v: k for k, v in page_mapping.items()}
+        st.session_state.current_page = reverse_mapping[page]
+        st.rerun()
     
     # Update session state when selectbox changes
     reverse_mapping = {v: k for k, v in page_mapping.items()}
     new_page_key = reverse_mapping[page]
     
-    if st.session_state.current_page != new_page_key:
-        st.session_state.current_page = new_page_key
+    st.session_state.current_page = new_page_key
     
     # Route based on current page
     if st.session_state.current_page == 'home':
@@ -795,6 +800,11 @@ def main():
         show_real_complete_assessment()
     else:  # dashboard
         show_results_dashboard()
+    
+    # DEBUG: Add this temporarily
+    st.sidebar.write(f"DEBUG - Selectbox value: {page}")
+    st.sidebar.write(f"DEBUG - Session state: {st.session_state.current_page}")
+    st.sidebar.write(f"DEBUG - Mapped key: {new_page_key}")
 
 def show_home_page():
     """Home page dengan overview"""
@@ -818,6 +828,7 @@ def show_home_page():
     """)
     
     # Quick start buttons
+    st.markdown("#### 🚀 Quick Start")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -836,7 +847,7 @@ def show_home_page():
             st.rerun()
     
     # System status
-    st.markdown("### 🔧 System Status")
+    st.markdown("#### 🔧 System Status")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -977,6 +988,8 @@ def show_real_cognitive_tests():
     
     selected_test_name = st.selectbox("Select Test:", list(test_options.keys()))
     selected_test = test_options[selected_test_name]
+
+    st.markdown(f"#### {selected_test_name}")
     
     # Run the selected test
     if selected_test == 'attention':
