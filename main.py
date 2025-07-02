@@ -72,12 +72,6 @@ except:
 # # Manual override for cloud deployment - uncomment this line for cloud:
 # AUDIO_MODE = "streamlit_native"  # Force cloud mode
 
-# Debug info in sidebar
-st.sidebar.write(f"🔧 Audio Mode: {AUDIO_MODE}")
-st.sidebar.write(f"📂 Path: {os.getcwd()}")
-st.sidebar.write(f"👤 User: {os.getenv('USER', 'unknown')}")
-st.sidebar.write(f"🏠 Home: {os.getenv('HOME', 'unknown')}")
-
 if AUDIO_MODE == "streamlit_native":
     st.info("🌐 Running in cloud mode - using web-based audio input")
 else:
@@ -957,12 +951,6 @@ def main():
     
     # Header
     st.markdown('<h1 class="main-header">🏭 Fit-to-Work Voice Readiness Checker</h1>', unsafe_allow_html=True)
-    
-    # # Show audio mode indicator
-    # if AUDIO_MODE == "streamlit_native":
-    #     st.info("🌐 Running in Cloud Mode - Using web-based audio input")
-    # else:
-    #     st.success("🎤 Running in Local Mode - Using direct microphone access")
     
     # Initialize session state
     if 'assessment_history' not in st.session_state:
