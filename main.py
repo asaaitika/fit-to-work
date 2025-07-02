@@ -9,18 +9,84 @@ from datetime import datetime
 import tempfile
 import os
 
-# Check audio mode availability
+# Force cloud mode detection - streamlit.app domain check
 def check_audio_mode():
+    # Check if running on streamlit.app domain
     try:
-        import sounddevice
-        return "sounddevice"
-    except ImportError:
+        # Get the current URL or check environment
+        import streamlit as st
+        
+        # Check session state for URL (if available)
+        if hasattr(st, 'get_option'):
+            server_address = st.get_option('server.address')
+            if server_address and 'streamlit.app' in str(server_address):
+                return "streamlit_native"
+        
+        # Check for streamlit cloud environment variables
+        if (os.getenv('STREAMLIT_SHARING') == 'true' or 
+            os.getenv('STREAMLIT_CLOUD') == 'true' or
+            os.getenv('HOME') == '/home/adminuser'):
+            return "streamlit_native"
+            
+        # Force cloud mode if path contains mount/src (Streamlit Cloud signature)
+        if '/mount/src' in os.getcwd():
+            return "streamlit_native"
+            
+        # If we can't detect reliably, try a sounddevice test
+        import sounddevice as sd
+        try:
+            # Try to actually query devices - this is the real test
+            devices = sd.query_devices()
+            
+            # Even if devices exist, check if we can actually record
+            try:
+                # Quick test record (will fail in cloud)
+                test_rec = sd.rec(frames=1, samplerate=16000, channels=1, dtype='float32')
+                sd.wait()
+                return "sounddevice"
+            except:
+                return "streamlit_native"
+                
+        except Exception:
+            return "streamlit_native"
+            
+    except Exception:
         return "streamlit_native"
 
-AUDIO_MODE = check_audio_mode()
+# For debugging - let's force cloud mode if domain contains streamlit.app
+import streamlit as st
 
-if AUDIO_MODE == "streamlit_native":
-    st.warning("🌐 Running in cloud mode - using web-based audio input")
+# Get current URL if possible
+try:
+    from streamlit.web import server
+    if hasattr(server, 'get_current_server'):
+        current_server = server.get_current_server() # type: ignore
+        if current_server and hasattr(current_server, '_config'):
+            # This is likely streamlit cloud
+            AUDIO_MODE = "streamlit_native"
+        else:
+            AUDIO_MODE = check_audio_mode()
+    else:
+        AUDIO_MODE = check_audio_mode()
+except:
+    AUDIO_MODE = check_audio_mode()
+
+# Override for streamlit.app domain - simple hardcode approach
+try:
+    import urllib.parse
+    # If we're on streamlit.app, force cloud mode
+    if 'streamlit.app' in str(st.get_option('server.headless')):
+        AUDIO_MODE = "streamlit_native"
+except:
+    pass
+
+# # Manual override for cloud deployment - uncomment this line for cloud:
+# AUDIO_MODE = "streamlit_native"  # Force cloud mode
+
+# if AUDIO_MODE == "streamlit_native":
+#     st.info("🌐 Running in cloud mode - using web-based audio input")
+# else:
+#     st.success("🎤 Running in local mode - using direct microphone access")
 
 import soundfile as sf
 import librosa
@@ -99,7 +165,7 @@ class RealVoiceChecker:
         print(f"🔧 Voice Checker initialized - Audio mode: {AUDIO_MODE}")
     
     def record_audio_streamlit_native(self):
-        """Audio recording menggunakan st.audio_input untuk cloud"""
+        """Audio recording menggunakan st.audio_input untuk cloud - simplified version"""
         st.info("🎤 Record your voice using the microphone button below:")
         
         # Use Streamlit native audio input
@@ -108,23 +174,39 @@ class RealVoiceChecker:
         if audio_bytes is not None:
             st.success("✅ Audio recorded successfully!")
             
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
-                tmp_file.write(audio_bytes.getvalue())
-                tmp_file_path = tmp_file.name
-            
-            # Load audio using librosa
             try:
-                audio_data, sample_rate = librosa.load(tmp_file_path, sr=self.sample_rate)
+                # Use file-based approach only (compatible with version 17)
+                import tempfile
+                import uuid
                 
-                # Clean up temp file
-                os.unlink(tmp_file_path)
+                # Use a fixed temp directory
+                temp_dir = "/tmp" if os.path.exists("/tmp") else tempfile.gettempdir()
                 
-                return audio_data, tmp_file_path
+                # Create unique filename
+                temp_filename = f"voice_record_{uuid.uuid4().hex}.wav"
+                temp_path = os.path.join(temp_dir, temp_filename)
+                
+                # Write audio bytes to file
+                with open(temp_path, 'wb') as f:
+                    f.write(audio_bytes.getvalue())
+                
+                # Verify file exists
+                if not os.path.exists(temp_path):
+                    st.error("Failed to save audio file")
+                    return None, None
+                
+                st.info(f"📁 Audio saved to: {temp_path}")
+                
+                # Load audio using librosa
+                audio_data, sample_rate = librosa.load(temp_path, sr=self.sample_rate)
+                
+                # Return both audio data and the file path
+                return audio_data, temp_path
                 
             except Exception as e:
-                st.error(f"Error loading audio: {e}")
-                os.unlink(tmp_file_path)
+                st.error(f"Error processing audio: {e}")
+                import traceback
+                st.error(f"Traceback: {traceback.format_exc()}")
                 return None, None
         
         return None, None
@@ -172,17 +254,32 @@ class RealVoiceChecker:
         if audio_data is None:
             return None
             
-        temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False, dir=tempfile.gettempdir())
         sf.write(temp_file.name, audio_data, self.sample_rate)
+        temp_file.close()
         return temp_file.name
     
     def speech_to_text(self, audio_file_path):
-        """Speech recognition"""
+        """Speech recognition with better error handling"""
         if audio_file_path is None:
             return "NO_AUDIO"
+        
+        # Verify file exists
+        if not os.path.exists(audio_file_path):
+            st.error(f"❌ Audio file not found: {audio_file_path}")
+            return "FILE_NOT_FOUND"
             
         try:
             st.info("🤖 Memproses speech recognition...")
+            st.info(f"📁 Using file: {audio_file_path}")
+            
+            # Check file size
+            file_size = os.path.getsize(audio_file_path)
+            st.info(f"📊 File size: {file_size} bytes")
+            
+            if file_size == 0:
+                st.error("❌ Audio file is empty")
+                return "EMPTY_FILE"
             
             with sr.AudioFile(audio_file_path) as source:
                 st.info("🔧 Adjusting for ambient noise...")
@@ -200,7 +297,7 @@ class RealVoiceChecker:
             for lang_code, lang_name in languages:
                 try:
                     st.info(f"🌍 Trying {lang_name}...")
-                    text = self.recognizer.recognize_google(audio, language=lang_code)  # type: ignore
+                    text = self.recognizer.recognize_google(audio, language=lang_code) # type: ignore
                     st.success(f"✅ SUCCESS with {lang_name}: '{text}'")
                     return text.lower().strip()
                 except sr.UnknownValueError:
@@ -212,6 +309,8 @@ class RealVoiceChecker:
             
         except Exception as e:
             st.error(f"❌ Error speech recognition: {e}")
+            import traceback
+            st.error(f"Traceback: {traceback.format_exc()}")
             return "ERROR"
     
     def calculate_pronunciation_similarity(self, target_sentence, recognized_text):
@@ -400,22 +499,48 @@ class RealVoiceChecker:
         
         return emotion_scores
     
-    def determine_work_readiness(self, emotion_scores):
-        """Determine work readiness"""
+    def determine_work_readiness(self, emotion_scores, pronunciation_score=None):
+        """Determine work readiness with pronunciation integration"""
         st.info("⚖️ Determining work readiness...")
         
         positive_emotions = emotion_scores['ready'] + emotion_scores['calm']
         negative_emotions = emotion_scores['tired'] + emotion_scores['stressed'] + emotion_scores['uncertain']
         
-        readiness_score = (positive_emotions * 0.7) - (negative_emotions * 0.3)
-        readiness_score = max(0, min(100, readiness_score))
+        # Base readiness score from emotions
+        base_readiness_score = (positive_emotions * 0.7) - (negative_emotions * 0.3)
+        base_readiness_score = max(0, min(100, base_readiness_score))
         
-        # Status determination
-        if readiness_score >= 70:
-            status = "SIAP KERJA"
-            recommendation = "Kondisi mental dan fisik baik untuk bekerja"
-            color = "🟢"
-        elif readiness_score >= 50:
+        # Apply pronunciation penalty if provided
+        if pronunciation_score is not None:
+            # Strong penalty for poor pronunciation (indicates communication issues)
+            if pronunciation_score < 30:
+                pronunciation_penalty = 30  # Heavy penalty
+            elif pronunciation_score < 50:
+                pronunciation_penalty = 20  # Moderate penalty  
+            elif pronunciation_score < 70:
+                pronunciation_penalty = 10  # Light penalty
+            else:
+                pronunciation_penalty = 0   # No penalty
+            
+            final_readiness_score = base_readiness_score - pronunciation_penalty
+            st.info(f"📢 Pronunciation penalty applied: -{pronunciation_penalty} points")
+        else:
+            final_readiness_score = base_readiness_score
+            pronunciation_penalty = 0
+        
+        final_readiness_score = max(0, min(100, final_readiness_score))
+        
+        # Enhanced status determination with pronunciation consideration
+        if final_readiness_score >= 70:
+            if pronunciation_score is not None and pronunciation_score < 50:
+                status = "CUKUP SIAP"  # Downgrade due to poor communication
+                recommendation = "Kondisi mental baik, tapi perlu perhatian komunikasi"
+                color = "🟡"
+            else:
+                status = "SIAP KERJA"
+                recommendation = "Kondisi mental dan fisik baik untuk bekerja"
+                color = "🟢"
+        elif final_readiness_score >= 50:
             status = "CUKUP SIAP"
             recommendation = "Bisa bekerja, tapi perhatikan kondisi diri"
             color = "🟡"
@@ -427,7 +552,9 @@ class RealVoiceChecker:
         dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])
         
         return {
-            'readiness_score': round(readiness_score, 1),
+            'readiness_score': round(final_readiness_score, 1),
+            'base_score': round(base_readiness_score, 1),
+            'pronunciation_penalty': pronunciation_penalty,
             'status': status,
             'recommendation': recommendation,
             'color': color,
@@ -441,12 +568,13 @@ class RealVoiceChecker:
         return random.choice(self.sample_sentences)
     
     def cleanup_temp_file(self, file_path):
-        """Cleanup temporary file"""
-        if file_path:
+        """Cleanup temporary file with better error handling"""
+        if file_path and os.path.exists(file_path):
             try:
                 os.unlink(file_path)
-            except:
-                pass
+                st.info(f"🗑️ Cleaned up: {file_path}")
+            except Exception as e:
+                st.warning(f"⚠️ Could not delete temp file: {e}")
 
 # Cognitive Assessment Classes (unchanged)
 class RealCognitiveAssessment:
@@ -1007,18 +1135,26 @@ def show_real_voice_analysis():
         # Cloud mode - use st.audio_input
         audio_data, temp_audio_file = checker.record_audio_streamlit()
         
-        if audio_data is not None and temp_audio_file is not None:
+        if audio_data is not None:
             try:
+                # For cloud mode, we already have the temp file path
+                if temp_audio_file is None:
+                    # Fallback: create temp file from audio data
+                    temp_audio_file = checker.save_temp_audio(audio_data)
+                
                 # Process voice analysis
                 process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
             finally:
-                # Cleanup is handled inside the method
-                pass
+                # Cleanup temp file
+                if temp_audio_file:
+                    checker.cleanup_temp_file(temp_audio_file)
 
 def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file):
     """Process voice analysis - shared function"""
     # Step 3: speech recognition
     st.markdown("#### Step 3: Speech Recognition")
+    
+    # Use file-based method only (compatible with version 17)
     recognized_text = checker.speech_to_text(temp_audio_file)
     
     # Step 4: Calculate pronunciation score
@@ -1031,7 +1167,7 @@ def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file
     # Step 6: Emotion analysis
     st.markdown("#### Step 5: Emotion Analysis")
     emotion_scores = checker.analyze_emotion_patterns(features)
-    voice_result = checker.determine_work_readiness(emotion_scores)
+    voice_result = checker.determine_work_readiness(emotion_scores, pronunciation_score)  # Pass pronunciation score
     
     # Display results
     st.markdown("#### 📊 Results")
@@ -1047,6 +1183,12 @@ def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file
     with col2:
         st.markdown("**🎭 Voice Analysis:**")
         st.metric("Readiness Score", f"{voice_result['readiness_score']}/100")
+        
+        # Show breakdown if pronunciation penalty applied
+        if voice_result.get('pronunciation_penalty', 0) > 0:
+            st.write(f"Base Score: {voice_result['base_score']:.1f}")
+            st.write(f"Pronunciation Penalty: -{voice_result['pronunciation_penalty']}")
+        
         st.write(f"Status: {voice_result['color']} {voice_result['status']}")
         st.write(f"Dominant Emotion: {checker.emotion_labels[voice_result['dominant_emotion']]}")
     
@@ -1170,11 +1312,16 @@ def show_real_complete_assessment():
             # Cloud mode
             audio_data, temp_audio_file = checker.record_audio_streamlit()
             
-            if audio_data is not None and temp_audio_file is not None:
+            if audio_data is not None:
                 try:
+                    # Ensure we have a temp file
+                    if temp_audio_file is None:
+                        temp_audio_file = checker.save_temp_audio(audio_data)
+                    
                     # Process voice analysis
                     process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
                 finally:
+                    # Cleanup handled in process_complete_voice_analysis
                     pass
     
     elif st.session_state.complete_assessment_step == 'cognitive':
@@ -1195,28 +1342,48 @@ def show_real_complete_assessment():
 
 def process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file):
     """Process voice analysis for complete assessment"""
-    recognized_text = checker.speech_to_text(temp_audio_file)
-    pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
-    features = checker.extract_voice_features(audio_data)
-    emotion_scores = checker.analyze_emotion_patterns(features)
-    voice_result = checker.determine_work_readiness(emotion_scores)
+    # Ensure we have a valid temp file
+    if temp_audio_file is None and audio_data is not None:
+        temp_audio_file = checker.save_temp_audio(audio_data)
     
-    # Store results
-    st.session_state.complete_voice_result = {
-        'target_sentence': target_sentence,
-        'recognized_text': recognized_text,
-        'pronunciation_score': pronunciation_score,
-        'readiness_score': voice_result['readiness_score'],
-        'dominant_emotion': voice_result['dominant_emotion'],
-        'emotion_breakdown': emotion_scores,
-        'voice_features': features
-    }
+    if temp_audio_file is None:
+        st.error("❌ Failed to create temporary audio file")
+        return
     
-    st.success(f"✅ Voice analysis complete! Score: {voice_result['readiness_score']}/100")
-    st.session_state.complete_assessment_step = 'cognitive'
-    
-    if st.button("Continue to Cognitive Tests"):
-        st.rerun()
+    try:
+        recognized_text = checker.speech_to_text(temp_audio_file)
+        pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
+        features = checker.extract_voice_features(audio_data)
+        emotion_scores = checker.analyze_emotion_patterns(features)
+        voice_result = checker.determine_work_readiness(emotion_scores, pronunciation_score)  # Include pronunciation
+        
+        # Store results
+        st.session_state.complete_voice_result = {
+            'target_sentence': target_sentence,
+            'recognized_text': recognized_text,
+            'pronunciation_score': pronunciation_score,
+            'readiness_score': voice_result['readiness_score'],
+            'base_score': voice_result.get('base_score', voice_result['readiness_score']),
+            'pronunciation_penalty': voice_result.get('pronunciation_penalty', 0),
+            'dominant_emotion': voice_result['dominant_emotion'],
+            'emotion_breakdown': emotion_scores,
+            'voice_features': features
+        }
+        
+        st.success(f"✅ Voice analysis complete! Score: {voice_result['readiness_score']}/100")
+        
+        # Show penalty breakdown if applied
+        if voice_result.get('pronunciation_penalty', 0) > 0:
+            st.info(f"📢 Pronunciation penalty applied: -{voice_result['pronunciation_penalty']} points (Base: {voice_result['base_score']:.1f})")
+        
+        st.session_state.complete_assessment_step = 'cognitive'
+        
+        if st.button("Continue to Cognitive Tests"):
+            st.rerun()
+            
+    finally:
+        # Clean up temp file
+        checker.cleanup_temp_file(temp_audio_file)
 
 def show_final_assessment_results():
     """Show final assessment results"""
