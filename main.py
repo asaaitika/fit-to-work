@@ -797,7 +797,7 @@ class CompleteFitToWorkChecker:
     def save_complete_assessment(self, assessment):
         """Save complete assessment results"""
         try:
-            filename = f"complete_assessment_{self.session_id}.json"
+            filename = f"data/assessments/complete_assessment_{self.session_id}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(assessment, f, indent=2, ensure_ascii=False, default=str)
             

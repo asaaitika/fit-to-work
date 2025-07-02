@@ -25,9 +25,13 @@ class VoiceReadinessVisualizer:
     def load_all_data(self):
         """Load semua data dari files yang sudah disimpan"""
         print("📂 Loading data files...")
+
+        # Ensure directories exist
+        os.makedirs("data/sessions", exist_ok=True)
+        os.makedirs("data/assessments", exist_ok=True)
         
-        # Load session data (dari testing sebelumnya)
-        session_files = glob.glob("session_data_*.json")
+        # Load session data
+        session_files = glob.glob("data/sessions/session_data_*.json")
         for file in session_files:
             try:
                 with open(file, 'r', encoding='utf-8') as f:
@@ -38,7 +42,7 @@ class VoiceReadinessVisualizer:
                 print(f"⚠️ Could not load {file}: {e}")
         
         # Load complete assessments
-        complete_files = glob.glob("complete_assessment_*.json")
+        complete_files = glob.glob("data/assessments/complete_assessment_*.json")
         for file in complete_files:
             try:
                 with open(file, 'r', encoding='utf-8') as f:
@@ -86,7 +90,7 @@ class VoiceReadinessVisualizer:
         self.plot_future_roadmap(fig)
         
         plt.tight_layout()
-        plt.savefig('voice_readiness_presentation.png', dpi=300, bbox_inches='tight')
+        plt.savefig('assets/images/voice_readiness_presentation.png', dpi=300, bbox_inches='tight')
         plt.show()
         
         print("✅ Comprehensive visualization saved: voice_readiness_presentation.png")
