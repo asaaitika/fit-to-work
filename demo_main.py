@@ -759,7 +759,8 @@ def main():
         'voice': "🎤 Voice Analysis Test",
         'cognitive': "🧠 Cognitive Test",
         'complete': "📊 Complete Assessment",
-        'dashboard': "📈 Results Dashboard"
+        'dashboard': "📈 Results Dashboard",
+        # 'about': "ℹ️ About Project"
     }
     
     # Set selectbox based on current_page session state
@@ -798,20 +799,17 @@ def main():
         show_real_cognitive_tests()
     elif st.session_state.current_page == 'complete':
         show_real_complete_assessment()
+    elif st.session_state.current_page == 'about':
+        show_about_project()
     else:  # dashboard
         show_results_dashboard()
-    
-    # DEBUG: Add this temporarily
-    st.sidebar.write(f"DEBUG - Selectbox value: {page}")
-    st.sidebar.write(f"DEBUG - Session state: {st.session_state.current_page}")
-    st.sidebar.write(f"DEBUG - Mapped key: {new_page_key}")
 
 def show_home_page():
     """Home page dengan overview"""
     st.markdown("### 🎯 System Overview")
 
     # Deskripsi Aplikasi
-    st.markdown("#### 📋 Tentang Aplikasi")
+    st.markdown("#### 📋 Description")
     st.markdown("""
     **Fit-to-Work Voice Readiness Checker** adalah sistem otomatis untuk mengevaluasi kesiapan pekerja 
     sebelum memulai shift kerja melalui analisis suara dan kognitif yang komprehensif. 
@@ -1270,6 +1268,229 @@ def show_results_dashboard():
             file_name=f"voice_readiness_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
+
+def show_about_project():
+    """About Project page dengan comprehensive information"""
+    st.markdown("### ℹ️ About Project")
+    
+    # Project Overview
+    st.markdown("#### 🎯 Project Overview")
+    st.markdown("""
+    **Fit-to-Work Voice Readiness Checker** adalah sistem otomatis untuk mengevaluasi kesiapan pekerja 
+    sebelum memulai shift kerja melalui analisis suara dan kognitif yang komprehensif. 
+    
+    Sistem ini dirancang untuk **meningkatkan keselamatan kerja** dengan mengidentifikasi 
+    potensi masalah pada pekerja sebelum mereka memulai aktivitas yang berisiko.
+    """)
+    
+    # Kegunaan dan Manfaat
+    st.markdown("#### 🎯 Kegunaan dan Manfaat")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **🏭 Untuk Industri:**
+        - Mencegah kecelakaan kerja akibat kondisi pekerja tidak fit
+        - Compliance dengan regulasi keselamatan kerja
+        - Monitoring kesehatan mental dan fisik pekerja
+        - Dokumentasi assessment untuk audit safety
+        
+        **👷‍♂️ Untuk Pekerja:**
+        - Self-assessment kondisi diri sebelum kerja
+        - Feedback real-time tentang kesiapan kerja
+        - Panduan untuk meningkatkan performa
+        - Pencegahan risiko cedera akibat kondisi tidak fit
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🎖️ Untuk Supervisor:**
+        - Objective assessment kesiapan tim
+        - Data-driven decision making
+        - Early warning system untuk masalah pekerja
+        - Report comprehensive untuk management
+        
+        **🏥 Untuk HSE (Health, Safety, Environment):**
+        - Monitoring trend kesehatan pekerja
+        - Identifikasi pattern risiko keselamatan
+        - Evidence-based safety program
+        - Compliance documentation
+        """)
+    
+    # Cara Kerja Sistem
+    st.markdown("#### ⚙️ Cara Kerja Sistem")
+    
+    workflow_col1, workflow_col2, workflow_col3 = st.columns(3)
+    
+    with workflow_col1:
+        st.markdown("""
+        **🎤 Step 1: Voice Analysis**
+        - Record suara 6 detik
+        - Speech recognition & pronunciation
+        - Analisis emosi dari karakteristik suara
+        - Deteksi kondisi: lelah, stress, siap, dll.
+        """)
+    
+    with workflow_col2:
+        st.markdown("""
+        **🧠 Step 2: Cognitive Assessment**
+        - 3 tes kognitif random dari 5 jenis tes
+        - Attention, Memory, Reaction Time
+        - Math & Pattern Recognition
+        - Scoring berdasarkan akurasi & waktu
+        """)
+    
+    with workflow_col3:
+        st.markdown("""
+        **📊 Step 3: Final Decision**
+        - Kombinasi skor: 60% voice + 40% cognitive
+        - Status: Fit/Conditional/Not Fit to Work
+        - Rekomendasi tindakan yang harus diambil
+        - Auto-save untuk tracking & reporting
+        """)
+    
+    # Expected Results & Interpretation
+    st.markdown("#### 🎯 Expected Results & Interpretation")
+    
+    result_col1, result_col2 = st.columns(2)
+    
+    with result_col1:
+        st.markdown("""
+        **📈 Scoring System:**
+        - **75-100 points**: 🟢 **FIT TO WORK**
+          - Pekerja siap dan aman untuk bekerja
+          - Bisa melakukan semua jenis tugas
+          - Kondisi mental dan fisik optimal
+        
+        - **60-74 points**: 🟡 **CONDITIONAL FIT**
+          - Bisa bekerja dengan pengawasan
+          - Hindari tugas berisiko tinggi
+          - Monitor kondisi selama shift
+        
+        - **< 60 points**: 🔴 **NOT FIT TO WORK**
+          - Tidak disarankan bekerja
+          - Perlu istirahat atau konsultasi
+          - Safety risk terlalu tinggi
+        """)
+    
+    with result_col2:
+        st.markdown("""
+        **🔍 Component Analysis:**
+        
+        **Voice Analysis (60% weight):**
+        - Pronunciation accuracy: Kemampuan artikulasi
+        - Emotion detection: Deteksi mood & stress level
+        - Voice characteristics: Pitch, energy, speech rate
+        - Readiness indicators: Overall voice health
+        
+        **Cognitive Assessment (40% weight):**
+        - Attention span: Fokus dan konsentrasi
+        - Memory function: Working memory capacity
+        - Reaction time: Alertness dan responsiveness
+        - Processing speed: Mental agility & sharpness
+        """)
+    
+    # Target Use Cases
+    st.markdown("#### 🏗️ Target Use Cases")
+    
+    use_case_tabs = st.tabs(["🏭 Manufacturing", "⛽ Oil & Gas", "🚧 Construction", "🚛 Transportation", "⚕️ Healthcare"])
+    
+    with use_case_tabs[0]:
+        st.markdown("""
+        **Manufacturing & Factory Workers:**
+        - Pre-shift assessment untuk operator mesin
+        - Safety check sebelum handling bahan kimia
+        - Quality control untuk pekerja precision tasks
+        - Shift change monitoring untuk 24/7 operations
+        """)
+    
+    with use_case_tabs[1]:
+        st.markdown("""
+        **Oil & Gas Industry:**
+        - Offshore worker readiness assessment
+        - High-risk operation pre-check
+        - Remote location safety monitoring
+        - Emergency response team fitness
+        """)
+    
+    with use_case_tabs[2]:
+        st.markdown("""
+        **Construction Sites:**
+        - Heavy machinery operator assessment
+        - Height work safety check
+        - Site safety compliance monitoring
+        - Contractor fitness verification
+        """)
+    
+    with use_case_tabs[3]:
+        st.markdown("""
+        **Transportation:**
+        - Driver fatigue detection
+        - Pilot/operator pre-flight check
+        - Public transport safety assessment
+        - Long-haul driver monitoring
+        """)
+    
+    with use_case_tabs[4]:
+        st.markdown("""
+        **Healthcare Workers:**
+        - Medical staff shift readiness
+        - Surgery team pre-operation check
+        - Emergency responder assessment
+        - Patient care quality assurance
+        """)
+    
+    # Technical Implementation
+    st.markdown("#### 🔧 Technical Implementation")
+    
+    tech_col1, tech_col2 = st.columns(2)
+    
+    with tech_col1:
+        st.markdown("""
+        **🛠️ Core Technologies:**
+        - **Python** - Main programming language
+        - **Streamlit** - Web application framework
+        - **librosa** - Audio processing & feature extraction
+        - **SpeechRecognition** - Google Speech API integration
+        - **NumPy/SciPy** - Scientific computing
+        - **Plotly** - Interactive data visualization
+        """)
+    
+    with tech_col2:
+        st.markdown("""
+        **📊 Key Features:**
+        - Real-time audio recording & processing
+        - Multi-language speech recognition
+        - Advanced voice emotion analysis
+        - Interactive cognitive testing suite
+        - Comprehensive reporting system
+        - Session management & data export
+        """)
+    
+    # Methodology & Validation
+    st.markdown("#### 📚 Methodology & Validation")
+    
+    method_col1, method_col2 = st.columns(2)
+    
+    with method_col1:
+        st.markdown("""
+        **🔬 Research Approach:**
+        - Literature review on voice analysis for health assessment
+        - Integration of established cognitive testing methods
+        - Rule-based pattern recognition for emotion detection
+        - Weighted scoring algorithm based on workplace safety research
+        """)
+    
+    with method_col2:
+        st.markdown("""
+        **✅ Validation Methods:**
+        - User testing with varied voice conditions
+        - Comparison with self-reported readiness levels
+        - Performance metrics tracking and analysis
+        - Cross-validation with expert assessments
+        - Continuous improvement based on user feedback
+        """)
 
 if __name__ == "__main__":
     main()
