@@ -53,21 +53,10 @@ def check_audio_mode():
     except Exception:
         return "streamlit_native"
 
-# For debugging - let's force cloud mode if domain contains streamlit.app
 import streamlit as st
 
-# Get current URL if possible
 try:
-    from streamlit.web import server
-    if hasattr(server, 'get_current_server'):
-        current_server = server.get_current_server() # type: ignore
-        if current_server and hasattr(current_server, '_config'):
-            # This is likely streamlit cloud
-            AUDIO_MODE = "streamlit_native"
-        else:
-            AUDIO_MODE = check_audio_mode()
-    else:
-        AUDIO_MODE = check_audio_mode()
+    AUDIO_MODE = check_audio_mode()
 except:
     AUDIO_MODE = check_audio_mode()
 
@@ -82,6 +71,12 @@ except:
 
 # # Manual override for cloud deployment - uncomment this line for cloud:
 # AUDIO_MODE = "streamlit_native"  # Force cloud mode
+
+# Debug info in sidebar
+st.sidebar.write(f"🔧 Audio Mode: {AUDIO_MODE}")
+st.sidebar.write(f"📂 Path: {os.getcwd()}")
+st.sidebar.write(f"👤 User: {os.getenv('USER', 'unknown')}")
+st.sidebar.write(f"🏠 Home: {os.getenv('HOME', 'unknown')}")
 
 if AUDIO_MODE == "streamlit_native":
     st.info("🌐 Running in cloud mode - using web-based audio input")
@@ -428,97 +423,114 @@ class RealVoiceChecker:
         return features
     
     def analyze_emotion_patterns(self, features):
-        """Analyze emotion patterns"""
+        """Analyze emotion patterns with improved logic"""
         st.info("🧠 Analyzing emotion patterns...")
         
         emotion_scores = {}
         
-        # Analyze READY/FOCUSED patterns
+        # Analyze READY/FOCUSED patterns (more generous scoring)
         ready_score = 0
-        if 100 < features['pitch_mean'] < 300:
+        if 100 < features['pitch_mean'] < 350:  # Wider range
+            ready_score += 25
+        if features['pitch_std'] < 60:  # More generous
             ready_score += 20
-        if features['pitch_std'] < 50:
+        if 0.005 < features['rms_energy'] < 0.15:  # Wider energy range
+            ready_score += 25
+        if features['speech_rate'] > 0.2:  # Lower threshold
             ready_score += 15
-        if 0.01 < features['rms_energy'] < 0.1:
-            ready_score += 20
-        if features['speech_rate'] > 0.3:
-            ready_score += 15
-        if features['spectral_centroid_mean'] > 1000:
-            ready_score += 15
-        if features['silence_ratio'] < 0.7:
-            ready_score += 15
+        if features['spectral_centroid_mean'] > 800:  # Lower threshold
+            ready_score += 10
+        if features['silence_ratio'] < 0.8:  # More generous
+            ready_score += 5
         emotion_scores['ready'] = min(ready_score, 100)
         
-        # Analyze TIRED patterns
+        # Analyze TIRED patterns (more restrictive)
         tired_score = 0
-        if features['pitch_mean'] < 150:
-            tired_score += 25
-        if features['rms_energy'] < 0.02:
+        if features['pitch_mean'] < 120:  # Very low pitch only
             tired_score += 30
-        if features['speech_rate'] < 0.4:
+        if features['rms_energy'] < 0.015:  # Very low energy only
+            tired_score += 35
+        if features['speech_rate'] < 0.25:  # Very slow speech only
             tired_score += 25
-        if features['silence_ratio'] > 0.5:
-            tired_score += 20
+        if features['silence_ratio'] > 0.7:  # Lots of silence
+            tired_score += 10
         emotion_scores['tired'] = min(tired_score, 100)
         
-        # Analyze STRESSED patterns
+        # Analyze STRESSED patterns (more restrictive)
         stressed_score = 0
-        if features['pitch_mean'] > 250:
+        if features['pitch_mean'] > 300:  # Very high pitch only
+            stressed_score += 30
+        if features['pitch_std'] > 80:  # Very high variation only
+            stressed_score += 30
+        if features['energy_variance'] > 0.015:  # High energy variation
             stressed_score += 25
-        if features['pitch_std'] > 60:
-            stressed_score += 25
-        if features['energy_variance'] > 0.01:
-            stressed_score += 25
-        if features['zcr_mean'] > 0.1:
-            stressed_score += 25
+        if features['zcr_mean'] > 0.12:  # High zero crossing rate
+            stressed_score += 15
         emotion_scores['stressed'] = min(stressed_score, 100)
         
-        # Analyze CALM patterns
+        # Analyze CALM patterns (more generous)
         calm_score = 0
-        if 120 < features['pitch_mean'] < 220:
+        if 120 < features['pitch_mean'] < 250:  # Normal pitch range
+            calm_score += 30
+        if features['pitch_std'] < 40:  # Stable pitch
             calm_score += 25
-        if features['pitch_std'] < 30:
+        if features['energy_variance'] < 0.008:  # Stable energy
             calm_score += 25
-        if features['energy_variance'] < 0.005:
-            calm_score += 25
-        if 0.4 < features['speech_rate'] < 0.7:
-            calm_score += 25
+        if 0.3 < features['speech_rate'] < 0.8:  # Normal speech rate
+            calm_score += 20
         emotion_scores['calm'] = min(calm_score, 100)
         
-        # Analyze UNCERTAIN patterns
+        # Analyze UNCERTAIN patterns (more restrictive)
         uncertain_score = 0
-        if features['pitch_std'] > 40:
-            uncertain_score += 30
-        if features['silence_ratio'] > 0.6:
-            uncertain_score += 30
-        if features['speech_rate'] < 0.5:
+        if features['pitch_std'] > 60:  # High pitch variation
+            uncertain_score += 35
+        if features['silence_ratio'] > 0.75:  # Lots of pauses
+            uncertain_score += 35
+        if features['speech_rate'] < 0.3:  # Very hesitant speech
             uncertain_score += 20
-        if features['spectral_centroid_mean'] < 1500:
-            uncertain_score += 20
+        if features['spectral_centroid_mean'] < 1200:  # Unclear speech
+            uncertain_score += 10
         emotion_scores['uncertain'] = min(uncertain_score, 100)
         
         return emotion_scores
     
     def determine_work_readiness(self, emotion_scores, pronunciation_score=None):
-        """Determine work readiness with pronunciation integration"""
+        """Determine work readiness with improved formula"""
         st.info("⚖️ Determining work readiness...")
         
-        positive_emotions = emotion_scores['ready'] + emotion_scores['calm']
-        negative_emotions = emotion_scores['tired'] + emotion_scores['stressed'] + emotion_scores['uncertain']
+        # NEW IMPROVED FORMULA
+        # 1. Get dominant emotion first
+        dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])
+        dominant_name, dominant_score = dominant_emotion
         
-        # Base readiness score from emotions
-        base_readiness_score = (positive_emotions * 0.7) - (negative_emotions * 0.3)
+        # 2. Base score from dominant emotion with weighted approach
+        if dominant_name == 'ready':
+            base_readiness_score = 70 + (dominant_score * 0.3)  # 70-100 range
+        elif dominant_name == 'calm':
+            base_readiness_score = 60 + (dominant_score * 0.4)  # 60-100 range
+        elif dominant_name == 'tired':
+            base_readiness_score = 30 - (dominant_score * 0.3)  # 0-30 range
+        elif dominant_name == 'stressed':
+            base_readiness_score = 40 - (dominant_score * 0.4)  # 0-40 range
+        else:  # uncertain
+            base_readiness_score = 45 - (dominant_score * 0.45) # 0-45 range
+        
+        # 3. Secondary emotions modifier (smaller impact)
+        positive_boost = (emotion_scores['ready'] + emotion_scores['calm']) * 0.1
+        negative_penalty = (emotion_scores['tired'] + emotion_scores['stressed'] + emotion_scores['uncertain']) * 0.05
+        
+        base_readiness_score = base_readiness_score + positive_boost - negative_penalty
         base_readiness_score = max(0, min(100, base_readiness_score))
         
-        # Apply pronunciation penalty if provided
+        # 4. Apply pronunciation penalty if provided
         if pronunciation_score is not None:
-            # Strong penalty for poor pronunciation (indicates communication issues)
-            if pronunciation_score < 30:
-                pronunciation_penalty = 30  # Heavy penalty
-            elif pronunciation_score < 50:
-                pronunciation_penalty = 20  # Moderate penalty  
-            elif pronunciation_score < 70:
-                pronunciation_penalty = 10  # Light penalty
+            # Reduced pronunciation penalty (less harsh)
+            if pronunciation_score < 20:
+                pronunciation_penalty = 25  # Heavy penalty
+            elif pronunciation_score < 40:
+                pronunciation_penalty = 15  # Moderate penalty  
+            elif pronunciation_score < 60:
+                pronunciation_penalty = 8   # Light penalty
             else:
                 pronunciation_penalty = 0   # No penalty
             
@@ -530,9 +542,9 @@ class RealVoiceChecker:
         
         final_readiness_score = max(0, min(100, final_readiness_score))
         
-        # Enhanced status determination with pronunciation consideration
-        if final_readiness_score >= 70:
-            if pronunciation_score is not None and pronunciation_score < 50:
+        # 5. Enhanced status determination
+        if final_readiness_score >= 75:
+            if pronunciation_score is not None and pronunciation_score < 40:
                 status = "CUKUP SIAP"  # Downgrade due to poor communication
                 recommendation = "Kondisi mental baik, tapi perlu perhatian komunikasi"
                 color = "🟡"
@@ -540,7 +552,7 @@ class RealVoiceChecker:
                 status = "SIAP KERJA"
                 recommendation = "Kondisi mental dan fisik baik untuk bekerja"
                 color = "🟢"
-        elif final_readiness_score >= 50:
+        elif final_readiness_score >= 55:
             status = "CUKUP SIAP"
             recommendation = "Bisa bekerja, tapi perhatikan kondisi diri"
             color = "🟡"
@@ -549,17 +561,15 @@ class RealVoiceChecker:
             recommendation = "Sebaiknya istirahat dulu atau konsultasi supervisor"
             color = "🔴"
         
-        dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])
-        
         return {
             'readiness_score': round(final_readiness_score, 1),
             'base_score': round(base_readiness_score, 1),
             'pronunciation_penalty': pronunciation_penalty,
+            'dominant_emotion': dominant_name,
+            'dominant_score': dominant_score,
             'status': status,
             'recommendation': recommendation,
             'color': color,
-            'dominant_emotion': dominant_emotion[0],
-            'dominant_score': dominant_emotion[1],
             'emotion_breakdown': emotion_scores
         }
     
