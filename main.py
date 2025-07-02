@@ -9,7 +9,19 @@ from datetime import datetime
 import tempfile
 import os
 
-import sounddevice as sd
+# Check audio mode availability
+def check_audio_mode():
+    try:
+        import sounddevice
+        return "sounddevice"
+    except ImportError:
+        return "streamlit_native"
+
+AUDIO_MODE = check_audio_mode()
+
+if AUDIO_MODE == "streamlit_native":
+    st.warning("🌐 Running in cloud mode - using web-based audio input")
+
 import soundfile as sf
 import librosa
 import librosa.display
@@ -60,7 +72,7 @@ st.markdown("""
 
 class RealVoiceChecker:
     """
-    Voice Checker
+    Voice Checker with cloud compatibility
     """
     def __init__(self, sample_rate=16000):
         self.sample_rate = sample_rate
@@ -84,11 +96,45 @@ class RealVoiceChecker:
             "Tim komunikasi baik"
         ]
         
-        print("🔧 Voice Checker initialized")
+        print(f"🔧 Voice Checker initialized - Audio mode: {AUDIO_MODE}")
     
-    def record_audio_streamlit(self, duration=6):
-        """Audio recording untuk Streamlit"""
+    def record_audio_streamlit_native(self):
+        """Audio recording menggunakan st.audio_input untuk cloud"""
+        st.info("🎤 Record your voice using the microphone button below:")
+        
+        # Use Streamlit native audio input
+        audio_bytes = st.audio_input("🎙️ Click to record your voice")
+        
+        if audio_bytes is not None:
+            st.success("✅ Audio recorded successfully!")
+            
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
+                tmp_file.write(audio_bytes.getvalue())
+                tmp_file_path = tmp_file.name
+            
+            # Load audio using librosa
+            try:
+                audio_data, sample_rate = librosa.load(tmp_file_path, sr=self.sample_rate)
+                
+                # Clean up temp file
+                os.unlink(tmp_file_path)
+                
+                return audio_data, tmp_file_path
+                
+            except Exception as e:
+                st.error(f"Error loading audio: {e}")
+                os.unlink(tmp_file_path)
+                return None, None
+        
+        return None, None
+    
+    def record_audio_sounddevice(self, duration=6):
+        """Original sounddevice recording for local use"""
         try:
+            # Import sounddevice inside method to avoid unbound variable error
+            import sounddevice as sd
+            
             st.info(f"🎤 Recording selama {duration} detik...")
             st.info("📢 Ucapkan kalimat target dengan jelas!")
             
@@ -107,21 +153,34 @@ class RealVoiceChecker:
             sd.wait()  # Wait for recording to finish
             st.success("✅ Recording selesai!")
             
-            return audio_data.flatten()
+            return audio_data.flatten(), None
             
         except Exception as e:
             st.error(f"❌ Error during recording: {e}")
             st.error("Pastikan microphone terhubung dan permission diberikan")
-            return None
+            return None, None
+    
+    def record_audio_streamlit(self, duration=6):
+        """Unified audio recording method"""
+        if AUDIO_MODE == "sounddevice":
+            return self.record_audio_sounddevice(duration)
+        else:
+            return self.record_audio_streamlit_native()
     
     def save_temp_audio(self, audio_data):
         """Save audio to temporary file"""
+        if audio_data is None:
+            return None
+            
         temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         sf.write(temp_file.name, audio_data, self.sample_rate)
         return temp_file.name
     
     def speech_to_text(self, audio_file_path):
         """Speech recognition"""
+        if audio_file_path is None:
+            return "NO_AUDIO"
+            
         try:
             st.info("🤖 Memproses speech recognition...")
             
@@ -157,7 +216,7 @@ class RealVoiceChecker:
     
     def calculate_pronunciation_similarity(self, target_sentence, recognized_text):
         """Calculate similarity"""
-        if recognized_text in ["TIDAK_TERDETEKSI", "ERROR"]:
+        if recognized_text in ["TIDAK_TERDETEKSI", "ERROR", "NO_AUDIO"]:
             return 0
         
         # Normalize texts
@@ -170,6 +229,25 @@ class RealVoiceChecker:
     
     def extract_voice_features(self, audio_data):
         """Extract voice features"""
+        if audio_data is None:
+            # Return default features if no audio
+            return {
+                'pitch_mean': 150,
+                'pitch_std': 30,
+                'pitch_range': 100,
+                'rms_energy': 0.05,
+                'max_amplitude': 0.1,
+                'energy_variance': 0.005,
+                'speech_rate': 0.5,
+                'mfcc_mean': np.zeros(13),
+                'mfcc_std': np.ones(13),
+                'spectral_centroid_mean': 1500,
+                'spectral_centroid_std': 500,
+                'zcr_mean': 0.05,
+                'zcr_std': 0.02,
+                'silence_ratio': 0.4
+            }
+        
         st.info("🔍 Extracting voice features...")
         
         features = {}
@@ -201,12 +279,12 @@ class RealVoiceChecker:
             features['pitch_std'] = 0
             features['pitch_range'] = 0
         
-        # 2. Energy Analysis - EXACT same code
+        # 2. Energy Analysis
         features['rms_energy'] = np.sqrt(np.mean(audio_data**2))
         features['max_amplitude'] = np.max(np.abs(audio_data))
         features['energy_variance'] = np.var(audio_data**2)
         
-        # 3. Speaking Rate Analysis - EXACT same code
+        # 3. Speaking Rate Analysis
         frame_length = int(0.025 * self.sample_rate)
         hop_length = int(0.01 * self.sample_rate)
         
@@ -224,7 +302,7 @@ class RealVoiceChecker:
         
         features['speech_rate'] = speech_frames / total_frames if total_frames > 0 else 0
         
-        # 4. Spectral Features - EXACT same code
+        # 4. Spectral Features
         try:
             mfccs = librosa.feature.mfcc(y=audio_data, sr=self.sample_rate, n_mfcc=13)
             features['mfcc_mean'] = np.mean(mfccs, axis=1)
@@ -242,7 +320,7 @@ class RealVoiceChecker:
             features['spectral_centroid_mean'] = 1500
             features['zcr_mean'] = 0.05
         
-        # 5. Temporal Features - EXACT same code
+        # 5. Temporal Features
         silence_threshold = features['rms_energy'] * 0.1
         silent_frames = np.sum(energy_frames < silence_threshold)
         features['silence_ratio'] = silent_frames / total_frames if total_frames > 0 else 0
@@ -332,7 +410,7 @@ class RealVoiceChecker:
         readiness_score = (positive_emotions * 0.7) - (negative_emotions * 0.3)
         readiness_score = max(0, min(100, readiness_score))
         
-        # EXACT same status determination
+        # Status determination
         if readiness_score >= 70:
             status = "SIAP KERJA"
             recommendation = "Kondisi mental dan fisik baik untuk bekerja"
@@ -364,12 +442,13 @@ class RealVoiceChecker:
     
     def cleanup_temp_file(self, file_path):
         """Cleanup temporary file"""
-        try:
-            os.unlink(file_path)
-        except:
-            pass
+        if file_path:
+            try:
+                os.unlink(file_path)
+            except:
+                pass
 
-# Cognitive Assessment Classes
+# Cognitive Assessment Classes (unchanged)
 class RealCognitiveAssessment:
     """Cognitive assessment dengan interactive Streamlit UI"""
     
@@ -433,7 +512,6 @@ class RealCognitiveAssessment:
     
     def memory_test_streamlit(self):
         """Memory test dengan Streamlit UI"""
-
         if 'memory_sequence' not in st.session_state:
             sequence_length = random.randint(4, 6)
             st.session_state.memory_sequence = [random.randint(1, 9) for _ in range(sequence_length)]
@@ -544,7 +622,6 @@ class RealCognitiveAssessment:
     
     def simple_math_test_streamlit(self):
         """Math test"""
-        
         if 'math_problem' not in st.session_state:
             problems = [
                 (lambda: (random.randint(10, 50), random.randint(5, 20)), lambda a, b: a + b, "+"),
@@ -595,7 +672,6 @@ class RealCognitiveAssessment:
     
     def sequence_test_streamlit(self):
         """Sequence test"""
-        
         if 'sequence_pattern' not in st.session_state:
             patterns = [
                 ([2, 4, 6, 8], 10, "Bilangan genap"),
@@ -744,6 +820,12 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🏭 Fit-to-Work Voice Readiness Checker</h1>', unsafe_allow_html=True)
     
+    # Show audio mode indicator
+    if AUDIO_MODE == "streamlit_native":
+        st.info("🌐 Running in Cloud Mode - Using web-based audio input")
+    else:
+        st.success("🎤 Running in Local Mode - Using direct microphone access")
+    
     # Initialize session state
     if 'assessment_history' not in st.session_state:
         st.session_state.assessment_history = []
@@ -760,7 +842,6 @@ def main():
         'cognitive': "🧠 Cognitive Test",
         'complete': "📊 Complete Assessment",
         'dashboard': "📈 Results Dashboard",
-        # 'about': "ℹ️ About Project"
     }
     
     # Set selectbox based on current_page session state
@@ -799,8 +880,6 @@ def main():
         show_real_cognitive_tests()
     elif st.session_state.current_page == 'complete':
         show_real_complete_assessment()
-    elif st.session_state.current_page == 'about':
-        show_about_project()
     else:  # dashboard
         show_results_dashboard()
 
@@ -818,12 +897,20 @@ def show_home_page():
     potensi masalah pada pekerja sebelum mereka memulai aktivitas yang berisiko.
     """)
     
-    st.warning("""
-    **Requirements:**
-    - Microphone yang berfungsi
-    - Internet connection (untuk Google Speech API)
-    - Permission untuk akses microphone
-    """)
+    if AUDIO_MODE == "streamlit_native":
+        st.info("""
+        **Cloud Mode Requirements:**
+        - Modern web browser dengan microphone support
+        - Internet connection untuk Google Speech API
+        - Permission untuk akses microphone saat diminta browser
+        """)
+    else:
+        st.warning("""
+        **Local Mode Requirements:**
+        - Microphone yang berfungsi
+        - Internet connection untuk Google Speech API
+        - Permission untuk akses microphone
+        """)
     
     # Quick start buttons
     st.markdown("#### 🚀 Quick Start")
@@ -851,15 +938,19 @@ def show_home_page():
     
     with col1:
         # Test microphone availability
-        try:
-            devices = sd.query_devices()
-            input_devices = [d for d in devices if d.get('max_input_channels', 0) > 0]
-            if input_devices:
-                st.success("🎤 Microphone: OK")
-            else:
-                st.error("🎤 Microphone: Not Found")
-        except:
-            st.error("🎤 Microphone: Error")
+        if AUDIO_MODE == "sounddevice":
+            try:
+                import sounddevice as sd
+                devices = sd.query_devices()
+                input_devices = [d for d in devices if d.get('max_input_channels', 0) > 0]
+                if input_devices:
+                    st.success("🎤 Microphone: OK")
+                else:
+                    st.error("🎤 Microphone: Not Found")
+            except:
+                st.error("🎤 Microphone: Error")
+        else:
+            st.info("🎤 Web Audio: Ready")
     
     with col2:
         # Test speech recognition
@@ -897,76 +988,92 @@ def show_real_voice_analysis():
     st.markdown("#### Step 2: Record Your Voice")
     st.info(f"📝 **Say this sentence:** \"{target_sentence}\"")
     
-    if st.button("🎤 Start Recording", type="primary"):
-        # audio recording
-        audio_data = checker.record_audio_streamlit(duration=6)
-        
-        if audio_data is not None:
-            # Save to temporary file
-            temp_audio_file = checker.save_temp_audio(audio_data)
+    if AUDIO_MODE == "sounddevice":
+        if st.button("🎤 Start Recording", type="primary"):
+            # audio recording
+            audio_data, temp_file = checker.record_audio_streamlit(duration=6)
             
+            if audio_data is not None:
+                # Save to temporary file
+                temp_audio_file = checker.save_temp_audio(audio_data)
+                
+                try:
+                    # Continue with processing...
+                    process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
+                finally:
+                    # Cleanup
+                    checker.cleanup_temp_file(temp_audio_file)
+    else:
+        # Cloud mode - use st.audio_input
+        audio_data, temp_audio_file = checker.record_audio_streamlit()
+        
+        if audio_data is not None and temp_audio_file is not None:
             try:
-                # Step 3: speech recognition
-                st.markdown("#### Step 3: Speech Recognition")
-                recognized_text = checker.speech_to_text(temp_audio_file)
-                
-                # Step 4: Calculate pronunciation score
-                pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
-                
-                # Step 5: voice feature extraction
-                st.markdown("#### Step 4: Voice Feature Extraction")
-                features = checker.extract_voice_features(audio_data)
-                
-                # Step 6: Emotion analysis
-                st.markdown("#### Step 5: Emotion Analysis")
-                emotion_scores = checker.analyze_emotion_patterns(features)
-                voice_result = checker.determine_work_readiness(emotion_scores)
-                
-                # Display results
-                st.markdown("#### 📊 Results")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("**🗣️ Speech Recognition:**")
-                    st.write(f"Target: {target_sentence}")
-                    st.write(f"Recognized: {recognized_text}")
-                    st.metric("Pronunciation Score", f"{pronunciation_score}%")
-                
-                with col2:
-                    st.markdown("**🎭 Voice Analysis:**")
-                    st.metric("Readiness Score", f"{voice_result['readiness_score']}/100")
-                    st.write(f"Status: {voice_result['color']} {voice_result['status']}")
-                    st.write(f"Dominant Emotion: {checker.emotion_labels[voice_result['dominant_emotion']]}")
-                
-                # Emotion breakdown chart
-                st.markdown("**📈 Emotion Breakdown:**")
-                emotion_df = pd.DataFrame([
-                    {'Emotion': checker.emotion_labels[k], 'Score': v} 
-                    for k, v in emotion_scores.items()
-                ])
-                
-                fig = px.bar(emotion_df, x='Emotion', y='Score',
-                           title="Real-time Emotion Analysis Results",
-                           color='Score', color_continuous_scale='viridis')
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Voice characteristics
-                st.markdown("**🔍 Voice Characteristics:**")
-                char_col1, char_col2, char_col3 = st.columns(3)
-                
-                with char_col1:
-                    st.metric("Pitch Mean", f"{features['pitch_mean']:.1f} Hz")
-                
-                with char_col2:
-                    st.metric("RMS Energy", f"{features['rms_energy']:.4f}")
-                
-                with char_col3:
-                    st.metric("Speech Rate", f"{features['speech_rate']:.2f}")
-                
+                # Process voice analysis
+                process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
             finally:
-                # Cleanup
-                checker.cleanup_temp_file(temp_audio_file)
+                # Cleanup is handled inside the method
+                pass
+
+def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file):
+    """Process voice analysis - shared function"""
+    # Step 3: speech recognition
+    st.markdown("#### Step 3: Speech Recognition")
+    recognized_text = checker.speech_to_text(temp_audio_file)
+    
+    # Step 4: Calculate pronunciation score
+    pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
+    
+    # Step 5: voice feature extraction
+    st.markdown("#### Step 4: Voice Feature Extraction")
+    features = checker.extract_voice_features(audio_data)
+    
+    # Step 6: Emotion analysis
+    st.markdown("#### Step 5: Emotion Analysis")
+    emotion_scores = checker.analyze_emotion_patterns(features)
+    voice_result = checker.determine_work_readiness(emotion_scores)
+    
+    # Display results
+    st.markdown("#### 📊 Results")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**🗣️ Speech Recognition:**")
+        st.write(f"Target: {target_sentence}")
+        st.write(f"Recognized: {recognized_text}")
+        st.metric("Pronunciation Score", f"{pronunciation_score}%")
+    
+    with col2:
+        st.markdown("**🎭 Voice Analysis:**")
+        st.metric("Readiness Score", f"{voice_result['readiness_score']}/100")
+        st.write(f"Status: {voice_result['color']} {voice_result['status']}")
+        st.write(f"Dominant Emotion: {checker.emotion_labels[voice_result['dominant_emotion']]}")
+    
+    # Emotion breakdown chart
+    st.markdown("**📈 Emotion Breakdown:**")
+    emotion_df = pd.DataFrame([
+        {'Emotion': checker.emotion_labels[k], 'Score': v} 
+        for k, v in emotion_scores.items()
+    ])
+    
+    fig = px.bar(emotion_df, x='Emotion', y='Score',
+               title="Real-time Emotion Analysis Results",
+               color='Score', color_continuous_scale='viridis')
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Voice characteristics
+    st.markdown("**🔍 Voice Characteristics:**")
+    char_col1, char_col2, char_col3 = st.columns(3)
+    
+    with char_col1:
+        st.metric("Pitch Mean", f"{features['pitch_mean']:.1f} Hz")
+    
+    with char_col2:
+        st.metric("RMS Energy", f"{features['rms_energy']:.4f}")
+    
+    with char_col3:
+        st.metric("Speech Rate", f"{features['speech_rate']:.2f}")
 
 def show_real_cognitive_tests():
     """cognitive tests page"""
@@ -1020,14 +1127,19 @@ def show_real_complete_assessment():
     
     if st.session_state.complete_assessment_step == 'start':
         st.markdown("#### 🎯 Complete Fit-to-Work Assessment")
-        st.info("""
+        assessment_info = """
         This assessment includes:
-        1. **Voice Analysis** (6-second recording)
+        1. **Voice Analysis** (audio recording)
         2. **Cognitive Battery** (3 tests)
         3. **Final Integration** (weighted scoring)
         
         Total time: ~5-7 minutes
-        """)
+        """
+        
+        if AUDIO_MODE == "streamlit_native":
+            assessment_info += "\n\n**Note:** Using web-based audio input for cloud compatibility."
+        
+        st.info(assessment_info)
         
         if st.button("🚀 Start Complete Assessment", type="primary"):
             st.session_state.complete_assessment_step = 'voice'
@@ -1041,39 +1153,29 @@ def show_real_complete_assessment():
         
         st.info(f"📝 **Say this sentence:** \"{target_sentence}\"")
         
-        if st.button("🎤 Record Voice", type="primary"):
-            audio_data = checker.record_audio_streamlit(duration=6)
-            
-            if audio_data is not None:
-                temp_audio_file = checker.save_temp_audio(audio_data)
+        if AUDIO_MODE == "sounddevice":
+            if st.button("🎤 Record Voice", type="primary"):
+                audio_data, temp_file = checker.record_audio_streamlit(duration=6)
                 
+                if audio_data is not None:
+                    temp_audio_file = checker.save_temp_audio(audio_data)
+                    
+                    try:
+                        # Process voice analysis
+                        process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
+                            
+                    finally:
+                        checker.cleanup_temp_file(temp_audio_file)
+        else:
+            # Cloud mode
+            audio_data, temp_audio_file = checker.record_audio_streamlit()
+            
+            if audio_data is not None and temp_audio_file is not None:
                 try:
                     # Process voice analysis
-                    recognized_text = checker.speech_to_text(temp_audio_file)
-                    pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
-                    features = checker.extract_voice_features(audio_data)
-                    emotion_scores = checker.analyze_emotion_patterns(features)
-                    voice_result = checker.determine_work_readiness(emotion_scores)
-                    
-                    # Store results
-                    st.session_state.complete_voice_result = {
-                        'target_sentence': target_sentence,
-                        'recognized_text': recognized_text,
-                        'pronunciation_score': pronunciation_score,
-                        'readiness_score': voice_result['readiness_score'],
-                        'dominant_emotion': voice_result['dominant_emotion'],
-                        'emotion_breakdown': emotion_scores,
-                        'voice_features': features
-                    }
-                    
-                    st.success(f"✅ Voice analysis complete! Score: {voice_result['readiness_score']}/100")
-                    st.session_state.complete_assessment_step = 'cognitive'
-                    
-                    if st.button("Continue to Cognitive Tests"):
-                        st.rerun()
-                        
+                    process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
                 finally:
-                    checker.cleanup_temp_file(temp_audio_file)
+                    pass
     
     elif st.session_state.complete_assessment_step == 'cognitive':
         st.markdown("#### 🧠 Step 2: Cognitive Assessment")
@@ -1089,92 +1191,122 @@ def show_real_complete_assessment():
                 st.rerun()
     
     elif st.session_state.complete_assessment_step == 'results':
-        st.markdown("#### 🎯 Final Assessment Results")
+        show_final_assessment_results()
+
+def process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file):
+    """Process voice analysis for complete assessment"""
+    recognized_text = checker.speech_to_text(temp_audio_file)
+    pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
+    features = checker.extract_voice_features(audio_data)
+    emotion_scores = checker.analyze_emotion_patterns(features)
+    voice_result = checker.determine_work_readiness(emotion_scores)
+    
+    # Store results
+    st.session_state.complete_voice_result = {
+        'target_sentence': target_sentence,
+        'recognized_text': recognized_text,
+        'pronunciation_score': pronunciation_score,
+        'readiness_score': voice_result['readiness_score'],
+        'dominant_emotion': voice_result['dominant_emotion'],
+        'emotion_breakdown': emotion_scores,
+        'voice_features': features
+    }
+    
+    st.success(f"✅ Voice analysis complete! Score: {voice_result['readiness_score']}/100")
+    st.session_state.complete_assessment_step = 'cognitive'
+    
+    if st.button("Continue to Cognitive Tests"):
+        st.rerun()
+
+def show_final_assessment_results():
+    """Show final assessment results"""
+    st.markdown("#### 🎯 Final Assessment Results")
+    
+    voice_result = st.session_state.complete_voice_result
+    cognitive_result = st.session_state.complete_cognitive_result
+    
+    # Calculate final score
+    voice_score = voice_result['readiness_score']
+    cognitive_score = cognitive_result['average_score']
+    final_score = voice_score * 0.6 + cognitive_score * 0.4
+    
+    # Determine final status
+    if final_score >= 75:
+        status = "🟢 FIT TO WORK"
+        card_class = "success-box"
+        recommendation = "Pekerja siap dan aman untuk bekerja"
+    elif final_score >= 60:
+        status = "🟡 CONDITIONAL FIT"
+        card_class = "warning-box"
+        recommendation = "Bisa bekerja dengan pengawasan atau tugas ringan"
+    else:
+        status = "🔴 NOT FIT TO WORK"
+        card_class = "danger-box"
+        recommendation = "Tidak disarankan bekerja, perlu istirahat atau konsultasi"
+    
+    # Display final results
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Voice Score", f"{voice_score:.1f}/100")
+    with col2:
+        st.metric("Cognitive Score", f"{cognitive_score:.1f}/100")
+    with col3:
+        st.metric("Final Score", f"{final_score:.1f}/100")
+    
+    st.markdown(f"""
+    <div class="{card_class}">
+        <h3>{status}</h3>
+        <p><strong>Final Score:</strong> {final_score:.1f}/100</p>
+        <p><strong>Recommendation:</strong> {recommendation}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Detailed breakdown
+    st.markdown("#### 📋 Detailed Results")
+    
+    detail_col1, detail_col2 = st.columns(2)
+    
+    with detail_col1:
+        st.markdown("**🗣️ Voice Analysis:**")
+        st.write(f"Target: {voice_result['target_sentence']}")
+        st.write(f"Recognized: {voice_result['recognized_text']}")
+        st.write(f"Pronunciation: {voice_result['pronunciation_score']:.1f}%")
+        st.write(f"Dominant Emotion: {voice_result['dominant_emotion']}")
+    
+    with detail_col2:
+        st.markdown("**🧠 Cognitive Tests:**")
+        for i, test in enumerate(cognitive_result['individual_results'], 1):
+            st.write(f"Test {i} ({test['test_type']}): {test['score']}/100")
+    
+    # Save complete assessment
+    if st.button("💾 Save Complete Assessment", type="primary"):
+        assessment_record = {
+            'timestamp': datetime.now().isoformat(),
+            'final_score': round(final_score, 1),
+            'status': status,
+            'voice_score': round(voice_score, 1),
+            'cognitive_score': round(cognitive_score, 1),
+            'voice_details': voice_result,
+            'cognitive_details': cognitive_result,
+            'recommendation': recommendation,
+            'audio_mode': AUDIO_MODE
+        }
         
-        voice_result = st.session_state.complete_voice_result
-        cognitive_result = st.session_state.complete_cognitive_result
-        
-        # Calculate final score
-        voice_score = voice_result['readiness_score']
-        cognitive_score = cognitive_result['average_score']
-        final_score = voice_score * 0.6 + cognitive_score * 0.4
-        
-        # Determine final status
-        if final_score >= 75:
-            status = "🟢 FIT TO WORK"
-            card_class = "success-box"
-            recommendation = "Pekerja siap dan aman untuk bekerja"
-        elif final_score >= 60:
-            status = "🟡 CONDITIONAL FIT"
-            card_class = "warning-box"
-            recommendation = "Bisa bekerja dengan pengawasan atau tugas ringan"
-        else:
-            status = "🔴 NOT FIT TO WORK"
-            card_class = "danger-box"
-            recommendation = "Tidak disarankan bekerja, perlu istirahat atau konsultasi"
-        
-        # Display final results
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Voice Score", f"{voice_score:.1f}/100")
-        with col2:
-            st.metric("Cognitive Score", f"{cognitive_score:.1f}/100")
-        with col3:
-            st.metric("Final Score", f"{final_score:.1f}/100")
-        
-        st.markdown(f"""
-        <div class="{card_class}">
-            <h3>{status}</h3>
-            <p><strong>Final Score:</strong> {final_score:.1f}/100</p>
-            <p><strong>Recommendation:</strong> {recommendation}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Detailed breakdown
-        st.markdown("#### 📋 Detailed Results")
-        
-        detail_col1, detail_col2 = st.columns(2)
-        
-        with detail_col1:
-            st.markdown("**🗣️ Voice Analysis:**")
-            st.write(f"Target: {voice_result['target_sentence']}")
-            st.write(f"Recognized: {voice_result['recognized_text']}")
-            st.write(f"Pronunciation: {voice_result['pronunciation_score']:.1f}%")
-            st.write(f"Dominant Emotion: {voice_result['dominant_emotion']}")
-        
-        with detail_col2:
-            st.markdown("**🧠 Cognitive Tests:**")
-            for i, test in enumerate(cognitive_result['individual_results'], 1):
-                st.write(f"Test {i} ({test['test_type']}): {test['score']}/100")
-        
-        # Save complete assessment
-        if st.button("💾 Save Complete Assessment", type="primary"):
-            assessment_record = {
-                'timestamp': datetime.now().isoformat(),
-                'final_score': round(final_score, 1),
-                'status': status,
-                'voice_score': round(voice_score, 1),
-                'cognitive_score': round(cognitive_score, 1),
-                'voice_details': voice_result,
-                'cognitive_details': cognitive_result,
-                'recommendation': recommendation
-            }
-            
-            st.session_state.assessment_history.append(assessment_record)
-            st.success("✅ Assessment saved successfully!")
-        
-        # Reset for new assessment
-        if st.button("🔄 Start New Assessment"):
-            # Reset all assessment states
-            for key in list(st.session_state.keys()):
-                key_str = str(key)
-                if key_str.startswith('complete_'):
-                    del st.session_state[key]
-                elif key_str.startswith('cognitive_'):
-                    del st.session_state[key]
-            st.session_state.complete_assessment_step = 'start'
-            st.rerun()
+        st.session_state.assessment_history.append(assessment_record)
+        st.success("✅ Assessment saved successfully!")
+    
+    # Reset for new assessment
+    if st.button("🔄 Start New Assessment"):
+        # Reset all assessment states
+        for key in list(st.session_state.keys()):
+            key_str = str(key)
+            if key_str.startswith('complete_'):
+                del st.session_state[key]
+            elif key_str.startswith('cognitive_'):
+                del st.session_state[key]
+        st.session_state.complete_assessment_step = 'start'
+        st.rerun()
 
 def show_results_dashboard():
     """Results dashboard dengan saved assessments"""
@@ -1265,232 +1397,9 @@ def show_results_dashboard():
         st.download_button(
             label="Download CSV",
             data=csv,
-            file_name = f"data/exports/voice_readiness_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"voice_readiness_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv"
         )
-
-def show_about_project():
-    """About Project page dengan comprehensive information"""
-    st.markdown("### ℹ️ About Project")
-    
-    # Project Overview
-    st.markdown("#### 🎯 Project Overview")
-    st.markdown("""
-    **Fit-to-Work Voice Readiness Checker** adalah sistem otomatis untuk mengevaluasi kesiapan pekerja 
-    sebelum memulai shift kerja melalui analisis suara dan kognitif yang komprehensif. 
-    
-    Sistem ini dirancang untuk **meningkatkan keselamatan kerja** dengan mengidentifikasi 
-    potensi masalah pada pekerja sebelum mereka memulai aktivitas yang berisiko.
-    """)
-    
-    # Kegunaan dan Manfaat
-    st.markdown("#### 🎯 Kegunaan dan Manfaat")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        **🏭 Untuk Industri:**
-        - Mencegah kecelakaan kerja akibat kondisi pekerja tidak fit
-        - Compliance dengan regulasi keselamatan kerja
-        - Monitoring kesehatan mental dan fisik pekerja
-        - Dokumentasi assessment untuk audit safety
-        
-        **👷‍♂️ Untuk Pekerja:**
-        - Self-assessment kondisi diri sebelum kerja
-        - Feedback real-time tentang kesiapan kerja
-        - Panduan untuk meningkatkan performa
-        - Pencegahan risiko cedera akibat kondisi tidak fit
-        """)
-    
-    with col2:
-        st.markdown("""
-        **🎖️ Untuk Supervisor:**
-        - Objective assessment kesiapan tim
-        - Data-driven decision making
-        - Early warning system untuk masalah pekerja
-        - Report comprehensive untuk management
-        
-        **🏥 Untuk HSE (Health, Safety, Environment):**
-        - Monitoring trend kesehatan pekerja
-        - Identifikasi pattern risiko keselamatan
-        - Evidence-based safety program
-        - Compliance documentation
-        """)
-    
-    # Cara Kerja Sistem
-    st.markdown("#### ⚙️ Cara Kerja Sistem")
-    
-    workflow_col1, workflow_col2, workflow_col3 = st.columns(3)
-    
-    with workflow_col1:
-        st.markdown("""
-        **🎤 Step 1: Voice Analysis**
-        - Record suara 6 detik
-        - Speech recognition & pronunciation
-        - Analisis emosi dari karakteristik suara
-        - Deteksi kondisi: lelah, stress, siap, dll.
-        """)
-    
-    with workflow_col2:
-        st.markdown("""
-        **🧠 Step 2: Cognitive Assessment**
-        - 3 tes kognitif random dari 5 jenis tes
-        - Attention, Memory, Reaction Time
-        - Math & Pattern Recognition
-        - Scoring berdasarkan akurasi & waktu
-        """)
-    
-    with workflow_col3:
-        st.markdown("""
-        **📊 Step 3: Final Decision**
-        - Kombinasi skor: 60% voice + 40% cognitive
-        - Status: Fit/Conditional/Not Fit to Work
-        - Rekomendasi tindakan yang harus diambil
-        - Auto-save untuk tracking & reporting
-        """)
-    
-    # Expected Results & Interpretation
-    st.markdown("#### 🎯 Expected Results & Interpretation")
-    
-    result_col1, result_col2 = st.columns(2)
-    
-    with result_col1:
-        st.markdown("""
-        **📈 Scoring System:**
-        - **75-100 points**: 🟢 **FIT TO WORK**
-          - Pekerja siap dan aman untuk bekerja
-          - Bisa melakukan semua jenis tugas
-          - Kondisi mental dan fisik optimal
-        
-        - **60-74 points**: 🟡 **CONDITIONAL FIT**
-          - Bisa bekerja dengan pengawasan
-          - Hindari tugas berisiko tinggi
-          - Monitor kondisi selama shift
-        
-        - **< 60 points**: 🔴 **NOT FIT TO WORK**
-          - Tidak disarankan bekerja
-          - Perlu istirahat atau konsultasi
-          - Safety risk terlalu tinggi
-        """)
-    
-    with result_col2:
-        st.markdown("""
-        **🔍 Component Analysis:**
-        
-        **Voice Analysis (60% weight):**
-        - Pronunciation accuracy: Kemampuan artikulasi
-        - Emotion detection: Deteksi mood & stress level
-        - Voice characteristics: Pitch, energy, speech rate
-        - Readiness indicators: Overall voice health
-        
-        **Cognitive Assessment (40% weight):**
-        - Attention span: Fokus dan konsentrasi
-        - Memory function: Working memory capacity
-        - Reaction time: Alertness dan responsiveness
-        - Processing speed: Mental agility & sharpness
-        """)
-    
-    # Target Use Cases
-    st.markdown("#### 🏗️ Target Use Cases")
-    
-    use_case_tabs = st.tabs(["🏭 Manufacturing", "⛽ Oil & Gas", "🚧 Construction", "🚛 Transportation", "⚕️ Healthcare"])
-    
-    with use_case_tabs[0]:
-        st.markdown("""
-        **Manufacturing & Factory Workers:**
-        - Pre-shift assessment untuk operator mesin
-        - Safety check sebelum handling bahan kimia
-        - Quality control untuk pekerja precision tasks
-        - Shift change monitoring untuk 24/7 operations
-        """)
-    
-    with use_case_tabs[1]:
-        st.markdown("""
-        **Oil & Gas Industry:**
-        - Offshore worker readiness assessment
-        - High-risk operation pre-check
-        - Remote location safety monitoring
-        - Emergency response team fitness
-        """)
-    
-    with use_case_tabs[2]:
-        st.markdown("""
-        **Construction Sites:**
-        - Heavy machinery operator assessment
-        - Height work safety check
-        - Site safety compliance monitoring
-        - Contractor fitness verification
-        """)
-    
-    with use_case_tabs[3]:
-        st.markdown("""
-        **Transportation:**
-        - Driver fatigue detection
-        - Pilot/operator pre-flight check
-        - Public transport safety assessment
-        - Long-haul driver monitoring
-        """)
-    
-    with use_case_tabs[4]:
-        st.markdown("""
-        **Healthcare Workers:**
-        - Medical staff shift readiness
-        - Surgery team pre-operation check
-        - Emergency responder assessment
-        - Patient care quality assurance
-        """)
-    
-    # Technical Implementation
-    st.markdown("#### 🔧 Technical Implementation")
-    
-    tech_col1, tech_col2 = st.columns(2)
-    
-    with tech_col1:
-        st.markdown("""
-        **🛠️ Core Technologies:**
-        - **Python** - Main programming language
-        - **Streamlit** - Web application framework
-        - **librosa** - Audio processing & feature extraction
-        - **SpeechRecognition** - Google Speech API integration
-        - **NumPy/SciPy** - Scientific computing
-        - **Plotly** - Interactive data visualization
-        """)
-    
-    with tech_col2:
-        st.markdown("""
-        **📊 Key Features:**
-        - Real-time audio recording & processing
-        - Multi-language speech recognition
-        - Advanced voice emotion analysis
-        - Interactive cognitive testing suite
-        - Comprehensive reporting system
-        - Session management & data export
-        """)
-    
-    # Methodology & Validation
-    st.markdown("#### 📚 Methodology & Validation")
-    
-    method_col1, method_col2 = st.columns(2)
-    
-    with method_col1:
-        st.markdown("""
-        **🔬 Research Approach:**
-        - Literature review on voice analysis for health assessment
-        - Integration of established cognitive testing methods
-        - Rule-based pattern recognition for emotion detection
-        - Weighted scoring algorithm based on workplace safety research
-        """)
-    
-    with method_col2:
-        st.markdown("""
-        **✅ Validation Methods:**
-        - User testing with varied voice conditions
-        - Comparison with self-reported readiness levels
-        - Performance metrics tracking and analysis
-        - Cross-validation with expert assessments
-        - Continuous improvement based on user feedback
-        """)
 
 if __name__ == "__main__":
     main()
