@@ -1,0 +1,57 @@
+{
+  "session_id": "20250702_144931",
+  "timestamp": "2025-07-02T14:50:03.279976",
+  "voice_analysis": {
+    "target_sentence": "Saya siap kerja",
+    "recognized_text": "saya siap kerja saya siap kerja saya siap kerja",
+    "pronunciation_score": 48.4,
+    "readiness_score": 49.5,
+    "dominant_emotion": "ready",
+    "emotion_breakdown": {
+      "ready": 85,
+      "tired": 55,
+      "stressed": 25,
+      "calm": 50,
+      "uncertain": 70
+    }
+  },
+  "cognitive_analysis": {
+    "total_tests": 3,
+    "individual_results": [
+      {
+        "test_type": "attention",
+        "score": 26,
+        "response_time": 8.17,
+        "correct": false,
+        "result": "❌ SALAH (jawaban: 10)"
+      },
+      {
+        "test_type": "reaction",
+        "score": 80,
+        "response_time": 0.8,
+        "correct": true,
+        "result": "✅ GOOD (0.800s)"
+      },
+      {
+        "test_type": "sequence",
+        "score": 84,
+        "response_time": 2.07,
+        "correct": true,
+        "result": "✅ BENAR (Kelipatan 5)"
+      }
+    ],
+    "average_score": 63.3,
+    "total_score": 190,
+    "status": "🟠 COGNITIVE MODERATE",
+    "recommendation": "Perlu perhatian extra, hindari tugas complex",
+    "timestamp": "2025-07-02T14:50:03.279863"
+  },
+  "final_assessment": {
+    "final_score": 55.0,
+    "status": "🔴 NOT FIT TO WORK",
+    "color": "red",
+    "recommendation": "Tidak disarankan bekerja, perlu istirahat atau konsultasi",
+    "voice_contribution": 29.7,
+    "cognitive_contribution": 25.3
+  }
+}

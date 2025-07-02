@@ -1,0 +1,57 @@
+{
+  "session_id": "20250702_144532",
+  "timestamp": "2025-07-02T14:46:36.088012",
+  "voice_analysis": {
+    "target_sentence": "Peralatan aman",
+    "recognized_text": "peralatan aman peralatan",
+    "pronunciation_score": 73.7,
+    "readiness_score": 80.5,
+    "dominant_emotion": "ready",
+    "emotion_breakdown": {
+      "ready": 85,
+      "tired": 30,
+      "stressed": 25,
+      "calm": 75,
+      "uncertain": 50
+    }
+  },
+  "cognitive_analysis": {
+    "total_tests": 3,
+    "individual_results": [
+      {
+        "test_type": "memory",
+        "score": 22,
+        "response_time": 10.42,
+        "correct": false,
+        "result": "❌ SALAH (benar: [6, 4, 4, 4, 6])"
+      },
+      {
+        "test_type": "attention",
+        "score": 17,
+        "response_time": 16.73,
+        "correct": true,
+        "result": "✅ BENAR"
+      },
+      {
+        "test_type": "reaction",
+        "score": 30,
+        "response_time": 2.679,
+        "correct": true,
+        "result": "❌ SLOW (2.679s)"
+      }
+    ],
+    "average_score": 23.0,
+    "total_score": 69,
+    "status": "🔴 COGNITIVE POOR",
+    "recommendation": "Sebaiknya istirahat, tidak disarankan bekerja",
+    "timestamp": "2025-07-02T14:46:36.087762"
+  },
+  "final_assessment": {
+    "final_score": 57.5,
+    "status": "🔴 NOT FIT TO WORK",
+    "color": "red",
+    "recommendation": "Tidak disarankan bekerja, perlu istirahat atau konsultasi",
+    "voice_contribution": 48.3,
+    "cognitive_contribution": 9.2
+  }
+}

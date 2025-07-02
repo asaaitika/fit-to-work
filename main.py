@@ -1,30 +1,323 @@
-import sounddevice as sd
-import soundfile as sf
-import numpy as np
-import librosa
-import librosa.display
-import matplotlib.pyplot as plt
-from scipy import stats
-from sklearn.preprocessing import StandardScaler
-import tempfile
-import os
+import random
+import time
 import json
 import pandas as pd
 from datetime import datetime
-import speech_recognition as sr
+import numpy as np
 
-class IntegratedVoiceChecker:
+class CognitiveAssessment:
     """
-    Integrated system: Speech Recognition + Emotion Analysis + Data Collection
+    Cognitive assessment untuk mengukur kesiapan mental bekerja
     """
-    def __init__(self, sample_rate=16000):
-        self.sample_rate = sample_rate
+    def __init__(self):
+        self.cognitive_tests = {
+            'attention': self.attention_test,
+            'memory': self.memory_test, 
+            'reaction': self.reaction_time_test,
+            'math': self.simple_math_test,
+            'sequence': self.sequence_test
+        }
         
-        # Speech Recognition Setup
+        print("🧠 Cognitive Assessment Module initialized")
+    
+    def attention_test(self):
+        """Test fokus dan perhatian"""
+        print("\n🎯 ATTENTION TEST")
+        print("Hitung berapa huruf 'A' dalam teks berikut:")
+        
+        # Generate random text dengan huruf A
+        texts = [
+            "BANANA ADALAH BUAH YANG MANIS DAN BERGIZI TINGGI",
+            "APLIKASI ANDROID SANGAT MEMBANTU AKTIVITAS HARIAN",
+            "AREA PARKIR YANG AMAN MEMBERIKAN RASA TENANG",
+            "ALARM KEBAKARAN AKTIF SETIAP SAAT DI AREA KERJA"
+        ]
+        
+        selected_text = random.choice(texts)
+        correct_count = selected_text.count('A')
+        
+        print(f"📖 Text: {selected_text}")
+        
+        start_time = time.time()
+        try:
+            user_answer = int(input("Berapa huruf 'A'? "))
+            response_time = time.time() - start_time
+            
+            if user_answer == correct_count:
+                score = max(0, 100 - int(response_time * 5))  # Penalty untuk lambat
+                result = "✅ BENAR"
+            else:
+                score = max(0, 50 - int(response_time * 3))
+                result = f"❌ SALAH (jawaban: {correct_count})"
+            
+            return {
+                'test_type': 'attention',
+                'score': score,
+                'response_time': round(response_time, 2),
+                'correct': user_answer == correct_count,
+                'result': result
+            }
+            
+        except ValueError:
+            return {
+                'test_type': 'attention',
+                'score': 0,
+                'response_time': 999,
+                'correct': False,
+                'result': "❌ Invalid input"
+            }
+    
+    def memory_test(self):
+        """Test memori jangka pendek"""
+        print("\n🧠 MEMORY TEST")
+        print("Hafalkan sequence angka berikut (akan hilang dalam 5 detik):")
+        
+        # Generate random sequence
+        sequence_length = random.randint(4, 6)
+        sequence = [random.randint(1, 9) for _ in range(sequence_length)]
+        sequence_str = " - ".join(map(str, sequence))
+        
+        print(f"📋 Sequence: {sequence_str}")
+        time.sleep(5)
+        
+        # Clear screen effect
+        print("\n" * 10)
+        print("⏰ Waktu habis! Sekarang ketik sequence yang tadi:")
+        
+        start_time = time.time()
+        try:
+            user_input = input("Sequence (pisahkan dengan spasi): ")
+            response_time = time.time() - start_time
+            
+            user_sequence = [int(x.strip()) for x in user_input.split()]
+            
+            if user_sequence == sequence:
+                score = max(0, 100 - int(response_time * 3))
+                result = "✅ BENAR"
+            else:
+                # Partial credit untuk sebagian benar
+                correct_positions = sum(1 for i, (a, b) in enumerate(zip(user_sequence, sequence)) if a == b)
+                score = max(0, int(correct_positions / len(sequence) * 70) - int(response_time * 2))
+                result = f"❌ SALAH (benar: {sequence})"
+            
+            return {
+                'test_type': 'memory',
+                'score': score,
+                'response_time': round(response_time, 2),
+                'correct': user_sequence == sequence,
+                'result': result
+            }
+            
+        except (ValueError, IndexError):
+            return {
+                'test_type': 'memory',
+                'score': 0,
+                'response_time': 999,
+                'correct': False,
+                'result': "❌ Invalid input"
+            }
+    
+    def reaction_time_test(self):
+        """Test waktu reaksi"""
+        print("\n⚡ REACTION TIME TEST")
+        print("Tekan ENTER secepat mungkin saat melihat '🚨 GO!'")
+        print("Tunggu instruksi...")
+        
+        # Random delay
+        delay = random.uniform(2, 5)
+        time.sleep(delay)
+        
+        print("🚨 GO!")
+        start_time = time.time()
+        input()
+        reaction_time = time.time() - start_time
+        
+        # Scoring berdasarkan reaction time
+        if reaction_time < 0.5:
+            score = 100
+            result = "🏆 EXCELLENT"
+        elif reaction_time < 1.0:
+            score = 80
+            result = "✅ GOOD"
+        elif reaction_time < 2.0:
+            score = 60
+            result = "⚠️ AVERAGE"
+        else:
+            score = 30
+            result = "❌ SLOW"
+        
+        return {
+            'test_type': 'reaction',
+            'score': score,
+            'response_time': round(reaction_time, 3),
+            'correct': True,
+            'result': f"{result} ({reaction_time:.3f}s)"
+        }
+    
+    def simple_math_test(self):
+        """Test kalkulasi sederhana"""
+        print("\n🔢 MATH TEST")
+        print("Hitung dengan cepat:")
+        
+        # Generate random math problem
+        problems = [
+            (lambda: (random.randint(10, 50), random.randint(5, 20)), lambda a, b: a + b, "+"),
+            (lambda: (random.randint(30, 80), random.randint(5, 25)), lambda a, b: a - b, "-"),
+            (lambda: (random.randint(2, 12), random.randint(2, 9)), lambda a, b: a * b, "×")
+        ]
+        
+        generator, operation, symbol = random.choice(problems)
+        a, b = generator()
+        correct_answer = operation(a, b)
+        
+        print(f"📊 {a} {symbol} {b} = ?")
+        
+        start_time = time.time()
+        try:
+            user_answer = int(input("Jawaban: "))
+            response_time = time.time() - start_time
+            
+            if user_answer == correct_answer:
+                score = max(0, 100 - int(response_time * 10))
+                result = "✅ BENAR"
+            else:
+                score = max(0, 30 - int(response_time * 5))
+                result = f"❌ SALAH (jawaban: {correct_answer})"
+            
+            return {
+                'test_type': 'math',
+                'score': score,
+                'response_time': round(response_time, 2),
+                'correct': user_answer == correct_answer,
+                'result': result
+            }
+            
+        except ValueError:
+            return {
+                'test_type': 'math',
+                'score': 0,
+                'response_time': 999,
+                'correct': False,
+                'result': "❌ Invalid input"
+            }
+    
+    def sequence_test(self):
+        """Test pola dan sequence"""
+        print("\n🔄 SEQUENCE TEST")
+        print("Lanjutkan pola berikut:")
+        
+        patterns = [
+            ([2, 4, 6, 8], 10, "Bilangan genap"),
+            ([1, 3, 5, 7], 9, "Bilangan ganjil"),
+            ([5, 10, 15, 20], 25, "Kelipatan 5"),
+            ([1, 4, 9, 16], 25, "Kuadrat"),
+            ([2, 6, 18, 54], 162, "×3"),
+        ]
+        
+        sequence, answer, description = random.choice(patterns)
+        
+        print(f"📋 Pola: {' - '.join(map(str, sequence))} - ?")
+        
+        start_time = time.time()
+        try:
+            user_answer = int(input("Angka selanjutnya: "))
+            response_time = time.time() - start_time
+            
+            if user_answer == answer:
+                score = max(0, 100 - int(response_time * 8))
+                result = f"✅ BENAR ({description})"
+            else:
+                score = max(0, 40 - int(response_time * 4))
+                result = f"❌ SALAH (jawaban: {answer} - {description})"
+            
+            return {
+                'test_type': 'sequence',
+                'score': score,
+                'response_time': round(response_time, 2),
+                'correct': user_answer == answer,
+                'result': result
+            }
+            
+        except ValueError:
+            return {
+                'test_type': 'sequence',
+                'score': 0,
+                'response_time': 999,
+                'correct': False,
+                'result': "❌ Invalid input"
+            }
+    
+    def run_cognitive_battery(self, num_tests=3):
+        """Jalankan battery cognitive tests"""
+        print("🧠 COGNITIVE ASSESSMENT BATTERY")
+        print("=" * 50)
+        print(f"Akan menjalankan {num_tests} tes kognitif untuk mengukur kesiapan mental")
+        print()
+        
+        # Select random tests
+        available_tests = list(self.cognitive_tests.keys())
+        selected_tests = random.sample(available_tests, min(num_tests, len(available_tests)))
+        
+        results = []
+        
+        for i, test_name in enumerate(selected_tests, 1):
+            print(f"🔄 TEST {i}/{len(selected_tests)}")
+            result = self.cognitive_tests[test_name]()
+            results.append(result)
+            print(f"📊 Score: {result['score']}/100 - {result['result']}")
+            
+            if i < len(selected_tests):
+                print("\n⏸️ 3 detik istirahat...")
+                time.sleep(3)
+                print()
+        
+        # Calculate overall cognitive score
+        total_score = sum(r['score'] for r in results)
+        avg_score = total_score / len(results)
+        
+        # Determine cognitive status
+        if avg_score >= 80:
+            status = "🟢 COGNITIVE EXCELLENT"
+            recommendation = "Kesiapan mental sangat baik untuk bekerja"
+        elif avg_score >= 65:
+            status = "🟡 COGNITIVE GOOD"
+            recommendation = "Kesiapan mental baik, bisa bekerja normal"
+        elif avg_score >= 50:
+            status = "🟠 COGNITIVE MODERATE"
+            recommendation = "Perlu perhatian extra, hindari tugas complex"
+        else:
+            status = "🔴 COGNITIVE POOR"
+            recommendation = "Sebaiknya istirahat, tidak disarankan bekerja"
+        
+        cognitive_summary = {
+            'total_tests': len(results),
+            'individual_results': results,
+            'average_score': round(avg_score, 1),
+            'total_score': total_score,
+            'status': status,
+            'recommendation': recommendation,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return cognitive_summary
+
+# Complete Fit-to-Work System Integration
+class CompleteFitToWorkChecker:
+    """
+    Complete integrated fit-to-work assessment system
+    """
+    def __init__(self):
+        # Initialize voice checker components directly
+        import sounddevice as sd
+        import soundfile as sf
+        import speech_recognition as sr
+        import tempfile
+        import os
+        
+        self.sample_rate = 16000
         self.recognizer = sr.Recognizer()
-        print("🔧 Initializing speech recognition...")
         
-        # Emotion Analysis Setup
+        # Emotion labels
         self.emotion_labels = {
             'ready': 'Siap & Fokus',
             'tired': 'Lelah/Mengantuk', 
@@ -32,10 +325,6 @@ class IntegratedVoiceChecker:
             'calm': 'Tenang & Stabil',
             'uncertain': 'Ragu/Tidak Yakin'
         }
-        
-        # Presentation Data Collection
-        self.test_results = []
-        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Sample sentences
         self.sample_sentences = [
@@ -46,56 +335,12 @@ class IntegratedVoiceChecker:
             "Tim komunikasi baik"
         ]
         
-        print("🧠 Integrated Voice Checker initialized")
-        print(f"📊 Session ID: {self.session_id}")
-    
-    def get_varied_instructions(self, test_number):
-        """Get varied instructions untuk testing yang lebih menarik"""
-        instruction_sets = [
-            {
-                'mood': 'energetic',
-                'instruction': '💪 Ucapkan dengan penuh semangat dan energi!',
-                'example': 'Bayangkan Anda baru dapat kabar baik'
-            },
-            {
-                'mood': 'calm',
-                'instruction': '😌 Ucapkan dengan tenang dan santai',
-                'example': 'Seperti sedang berbicara dengan teman'
-            },
-            {
-                'mood': 'professional',
-                'instruction': '👔 Ucapkan dengan nada formal dan profesional',
-                'example': 'Seperti sedang presentasi di kantor'
-            },
-            {
-                'mood': 'tired',
-                'instruction': '😴 Ucapkan seolah Anda agak lelah/mengantuk',
-                'example': 'Simulasikan kondisi setelah kerja lembur'
-            },
-            {
-                'mood': 'confident',
-                'instruction': '🦾 Ucapkan dengan penuh percaya diri',
-                'example': 'Seperti sedang meyakinkan atasan'
-            },
-            {
-                'mood': 'hesitant',
-                'instruction': '🤔 Ucapkan dengan sedikit ragu-ragu',
-                'example': 'Seperti sedang tidak yakin dengan kondisi'
-            },
-            {
-                'mood': 'normal',
-                'instruction': '🗣️ Ucapkan secara natural dan biasa',
-                'example': 'Seperti berbicara sehari-hari'
-            },
-            {
-                'mood': 'stressed',
-                'instruction': '😰 Ucapkan dengan nada agak tegang/stress',
-                'example': 'Simulasikan kondisi deadline mendekat'
-            }
-        ]
+        self.cognitive_assessment = CognitiveAssessment()
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.complete_results = []
         
-        # Cycle through different instruction sets
-        return instruction_sets[test_number % len(instruction_sets)]
+        print("🏭 COMPLETE FIT-TO-WORK CHECKER INITIALIZED")
+        print(f"📊 Session ID: {self.session_id}")
     
     def get_contextual_sentences(self):
         """Get sentences dengan context yang bervariasi"""
@@ -132,6 +377,8 @@ class IntegratedVoiceChecker:
     
     def record_audio(self, duration=6):
         """Record audio for analysis"""
+        import sounddevice as sd
+        
         print(f"🎤 Recording selama {duration} detik...")
         print("📢 Ucapkan kalimat target dengan jelas dan natural!")
         
@@ -145,12 +392,17 @@ class IntegratedVoiceChecker:
     
     def save_temp_audio(self, audio_data):
         """Save audio to temporary file"""
+        import soundfile as sf
+        import tempfile
+        
         temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         sf.write(temp_file.name, audio_data, self.sample_rate)
         return temp_file.name
     
     def speech_to_text(self, audio_file_path):
         """Speech recognition with ambient noise filtering"""
+        import speech_recognition as sr
+        
         try:
             print("🤖 Memproses speech recognition...")
             
@@ -200,20 +452,19 @@ class IntegratedVoiceChecker:
         return round(similarity * 100, 1)
     
     def extract_voice_features(self, audio_data):
-        """
-        Extract audio features untuk emotion analysis
-        """
+        """Extract audio features untuk emotion analysis"""
+        import librosa
+        import numpy as np
+        
         print("🔍 Extracting voice features...")
         
         features = {}
         
-        # 1. Pitch Analysis (Fundamental Frequency)
+        # 1. Pitch Analysis
         try:
-            # Extract pitch using librosa
             pitches, magnitudes = librosa.piptrack(y=audio_data, sr=self.sample_rate, 
                                                   threshold=0.1, fmin=50, fmax=400)
             
-            # Get pitch values (remove zeros)
             pitch_values = []
             for t in range(pitches.shape[1]):
                 index = magnitudes[:, t].argmax()
@@ -236,17 +487,15 @@ class IntegratedVoiceChecker:
             features['pitch_std'] = 0
             features['pitch_range'] = 0
         
-        # 2. Energy and Amplitude Analysis
+        # 2. Energy Analysis
         features['rms_energy'] = np.sqrt(np.mean(audio_data**2))
         features['max_amplitude'] = np.max(np.abs(audio_data))
         features['energy_variance'] = np.var(audio_data**2)
         
         # 3. Speaking Rate Analysis
-        # Detect speech segments
-        frame_length = int(0.025 * self.sample_rate)  # 25ms frames
-        hop_length = int(0.01 * self.sample_rate)     # 10ms hop
+        frame_length = int(0.025 * self.sample_rate)
+        hop_length = int(0.01 * self.sample_rate)
         
-        # Energy-based voice activity detection
         energy_frames = []
         for i in range(0, len(audio_data) - frame_length, hop_length):
             frame = audio_data[i:i + frame_length]
@@ -261,24 +510,25 @@ class IntegratedVoiceChecker:
         
         features['speech_rate'] = speech_frames / total_frames if total_frames > 0 else 0
         
-        # 4. Spectral Features (Frequency characteristics)
-        # MFCCs (Mel-Frequency Cepstral Coefficients)
-        mfccs = librosa.feature.mfcc(y=audio_data, sr=self.sample_rate, n_mfcc=13)
-        features['mfcc_mean'] = np.mean(mfccs, axis=1)
-        features['mfcc_std'] = np.std(mfccs, axis=1)
-        
-        # Spectral centroid (brightness of sound)
-        spectral_centroids = librosa.feature.spectral_centroid(y=audio_data, sr=self.sample_rate)[0]
-        features['spectral_centroid_mean'] = np.mean(spectral_centroids)
-        features['spectral_centroid_std'] = np.std(spectral_centroids)
-        
-        # Zero crossing rate (roughness)
-        zcr = librosa.feature.zero_crossing_rate(audio_data)[0]
-        features['zcr_mean'] = np.mean(zcr)
-        features['zcr_std'] = np.std(zcr)
+        # 4. Spectral Features
+        try:
+            mfccs = librosa.feature.mfcc(y=audio_data, sr=self.sample_rate, n_mfcc=13)
+            features['mfcc_mean'] = np.mean(mfccs, axis=1)
+            features['mfcc_std'] = np.std(mfccs, axis=1)
+            
+            spectral_centroids = librosa.feature.spectral_centroid(y=audio_data, sr=self.sample_rate)[0]
+            features['spectral_centroid_mean'] = np.mean(spectral_centroids)
+            features['spectral_centroid_std'] = np.std(spectral_centroids)
+            
+            zcr = librosa.feature.zero_crossing_rate(audio_data)[0]
+            features['zcr_mean'] = np.mean(zcr)
+            features['zcr_std'] = np.std(zcr)
+        except Exception as e:
+            print(f"⚠️ Spectral features warning: {e}")
+            features['spectral_centroid_mean'] = 1500
+            features['zcr_mean'] = 0.05
         
         # 5. Temporal Features
-        # Pause detection
         silence_threshold = features['rms_energy'] * 0.1
         silent_frames = np.sum(energy_frames < silence_threshold)
         features['silence_ratio'] = silent_frames / total_frames if total_frames > 0 else 0
@@ -287,151 +537,87 @@ class IntegratedVoiceChecker:
         return features
     
     def analyze_emotion_patterns(self, features):
-        """
-        Analyze extracted features to determine emotional state
-        """
+        """Analyze extracted features to determine emotional state"""
         print("🧠 Analyzing emotion patterns...")
         
         emotion_scores = {}
         
         # Analyze READY/FOCUSED patterns
         ready_score = 0
-        
-        # Ready indicators:
-        # - Stable pitch (not too high/low variance)
-        # - Good energy level (not too low/high)
-        # - Consistent speech rate
-        # - Clear articulation (good spectral clarity)
-        
-        if 100 < features['pitch_mean'] < 300:  # Normal pitch range
+        if 100 < features['pitch_mean'] < 300:
             ready_score += 20
-        
-        if features['pitch_std'] < 50:  # Stable pitch
+        if features['pitch_std'] < 50:
             ready_score += 15
-        
-        if 0.01 < features['rms_energy'] < 0.1:  # Good energy level
+        if 0.01 < features['rms_energy'] < 0.1:
             ready_score += 20
-        
-        if features['speech_rate'] > 0.3:  # Active speech
+        if features['speech_rate'] > 0.3:
             ready_score += 15
-        
-        if features['spectral_centroid_mean'] > 1000:  # Clear articulation
+        if features['spectral_centroid_mean'] > 1000:
             ready_score += 15
-        
-        if features['silence_ratio'] < 0.7:  # Not too much silence
+        if features['silence_ratio'] < 0.7:
             ready_score += 15
-        
         emotion_scores['ready'] = min(ready_score, 100)
         
-        # Analyze TIRED/SLEEPY patterns
+        # Analyze TIRED patterns
         tired_score = 0
-        
-        # Tired indicators:
-        # - Lower pitch
-        # - Low energy
-        # - Slow speech rate
-        # - More pauses/silence
-        
-        if features['pitch_mean'] < 150:  # Lower pitch
+        if features['pitch_mean'] < 150:
             tired_score += 25
-        
-        if features['rms_energy'] < 0.02:  # Low energy
+        if features['rms_energy'] < 0.02:
             tired_score += 30
-        
-        if features['speech_rate'] < 0.4:  # Slow speech
+        if features['speech_rate'] < 0.4:
             tired_score += 25
-        
-        if features['silence_ratio'] > 0.5:  # Many pauses
+        if features['silence_ratio'] > 0.5:
             tired_score += 20
-        
         emotion_scores['tired'] = min(tired_score, 100)
         
-        # Analyze STRESSED/TENSE patterns
+        # Analyze STRESSED patterns
         stressed_score = 0
-        
-        # Stress indicators:
-        # - Higher pitch
-        # - High pitch variance
-        # - High energy variance
-        # - Fast/irregular speech
-        
-        if features['pitch_mean'] > 250:  # Higher pitch
+        if features['pitch_mean'] > 250:
             stressed_score += 25
-        
-        if features['pitch_std'] > 60:  # Unstable pitch
+        if features['pitch_std'] > 60:
             stressed_score += 25
-        
-        if features['energy_variance'] > 0.01:  # Energy fluctuation
+        if features['energy_variance'] > 0.01:
             stressed_score += 25
-        
-        if features['zcr_mean'] > 0.1:  # Voice roughness
+        if features['zcr_mean'] > 0.1:
             stressed_score += 25
-        
         emotion_scores['stressed'] = min(stressed_score, 100)
         
-        # Analyze CALM/STABLE patterns
+        # Analyze CALM patterns
         calm_score = 0
-        
-        # Calm indicators:
-        # - Stable moderate pitch
-        # - Consistent energy
-        # - Steady speech rate
-        # - Smooth spectral characteristics
-        
-        if 120 < features['pitch_mean'] < 220:  # Moderate pitch
+        if 120 < features['pitch_mean'] < 220:
             calm_score += 25
-        
-        if features['pitch_std'] < 30:  # Very stable pitch
+        if features['pitch_std'] < 30:
             calm_score += 25
-        
-        if features['energy_variance'] < 0.005:  # Consistent energy
+        if features['energy_variance'] < 0.005:
             calm_score += 25
-        
-        if 0.4 < features['speech_rate'] < 0.7:  # Steady speech
+        if 0.4 < features['speech_rate'] < 0.7:
             calm_score += 25
-        
         emotion_scores['calm'] = min(calm_score, 100)
         
         # Analyze UNCERTAIN patterns
         uncertain_score = 0
-        
-        # Uncertainty indicators:
-        # - Variable pitch (hesitation)
-        # - Irregular energy
-        # - Many pauses
-        # - Lower confidence in articulation
-        
-        if features['pitch_std'] > 40:  # Variable pitch
+        if features['pitch_std'] > 40:
             uncertain_score += 30
-        
-        if features['silence_ratio'] > 0.6:  # Many hesitation pauses
+        if features['silence_ratio'] > 0.6:
             uncertain_score += 30
-        
-        if features['speech_rate'] < 0.5:  # Hesitant speech
+        if features['speech_rate'] < 0.5:
             uncertain_score += 20
-        
-        if features['spectral_centroid_mean'] < 1500:  # Less clear articulation
+        if features['spectral_centroid_mean'] < 1500:
             uncertain_score += 20
-        
         emotion_scores['uncertain'] = min(uncertain_score, 100)
         
         return emotion_scores
     
     def determine_work_readiness(self, emotion_scores):
-        """
-        Determine overall work readiness based on emotion analysis
-        """
+        """Determine overall work readiness based on emotion analysis"""
         print("⚖️ Determining work readiness...")
         
-        # Calculate readiness score
         positive_emotions = emotion_scores['ready'] + emotion_scores['calm']
         negative_emotions = emotion_scores['tired'] + emotion_scores['stressed'] + emotion_scores['uncertain']
         
-        # Weighted calculation
         readiness_score = (positive_emotions * 0.7) - (negative_emotions * 0.3)
         readiness_score = max(0, min(100, readiness_score))
         
-        # Determine status
         if readiness_score >= 70:
             status = "SIAP KERJA"
             recommendation = "Kondisi mental dan fisik baik untuk bekerja"
@@ -445,7 +631,6 @@ class IntegratedVoiceChecker:
             recommendation = "Sebaiknya istirahat dulu atau konsultasi supervisor"
             color = "🔴"
         
-        # Find dominant emotion
         dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])
         
         return {
@@ -458,293 +643,195 @@ class IntegratedVoiceChecker:
             'emotion_breakdown': emotion_scores
         }
     
-    def record_audio_for_emotion(self, duration=5):
-        """Record audio khusus untuk emotion analysis"""
-        print("🎤 Recording untuk analisis emosi...")
-        print("💡 Tips: Bicara secara natural dan ekspresif")
-        print("📢 Ceritakan bagaimana perasaan Anda hari ini!")
+    def calculate_final_readiness_score(self, voice_result, cognitive_result):
+        """Calculate final fit-to-work score"""
+        # Weighted combination
+        voice_weight = 0.6  # 60% voice analysis
+        cognitive_weight = 0.4  # 40% cognitive assessment
         
-        audio_data = sd.rec(int(duration * self.sample_rate), 
-                          samplerate=self.sample_rate, 
-                          channels=1, 
-                          dtype='float32')
-        sd.wait()
-        print("✅ Recording selesai!")
-        return audio_data.flatten()
-    
-    def convert_numpy_types(self, obj):
-        """Convert numpy types to native Python types for JSON serialization"""
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, dict):
-            return {key: self.convert_numpy_types(value) for key, value in obj.items()}
-        elif isinstance(obj, list):
-            return [self.convert_numpy_types(item) for item in obj]
+        final_score = (
+            voice_result['readiness_score'] * voice_weight +
+            cognitive_result['average_score'] * cognitive_weight
+        )
+        
+        # Determine final status
+        if final_score >= 75:
+            status = "🟢 FIT TO WORK"
+            color = "green"
+            recommendation = "Pekerja siap dan aman untuk bekerja"
+        elif final_score >= 60:
+            status = "🟡 CONDITIONAL FIT"
+            color = "yellow"
+            recommendation = "Bisa bekerja dengan pengawasan atau tugas ringan"
         else:
-            return obj
-    
-    def collect_test_data(self, target_sentence, recognized_text, pronunciation_score, 
-                         emotion_result, audio_features, user_notes=""):
-        """Collect test data for presentation analysis"""
-        # Convert all numpy types to native Python types
-        safe_emotion_scores = self.convert_numpy_types(emotion_result['emotion_breakdown'])
-        safe_audio_features = self.convert_numpy_types({
-            'pitch_mean': round(float(audio_features['pitch_mean']), 2),
-            'pitch_std': round(float(audio_features['pitch_std']), 2),
-            'rms_energy': round(float(audio_features['rms_energy']), 6),
-            'speech_rate': round(float(audio_features['speech_rate']), 3),
-            'spectral_centroid_mean': round(float(audio_features['spectral_centroid_mean']), 2)
-        })
+            status = "🔴 NOT FIT TO WORK"
+            color = "red"
+            recommendation = "Tidak disarankan bekerja, perlu istirahat atau konsultasi"
         
-        test_sample = {
-            'session_id': self.session_id,
-            'test_number': len(self.test_results) + 1,
-            'timestamp': datetime.now().isoformat(),
-            'target_sentence': target_sentence,
-            'recognized_text': recognized_text,
-            'pronunciation_score': float(pronunciation_score),
-            'readiness_score': float(emotion_result['readiness_score']),
-            'readiness_status': emotion_result['status'],
-            'dominant_emotion': emotion_result['dominant_emotion'],
-            'emotion_scores': safe_emotion_scores,
-            'audio_features': safe_audio_features,
-            'user_notes': user_notes
+        return {
+            'final_score': round(final_score, 1),
+            'status': status,
+            'color': color,
+            'recommendation': recommendation,
+            'voice_contribution': round(voice_result['readiness_score'] * voice_weight, 1),
+            'cognitive_contribution': round(cognitive_result['average_score'] * cognitive_weight, 1)
         }
-        
-        self.test_results.append(test_sample)
-        print(f"📊 Test data collected (Sample #{len(self.test_results)})")
-        return test_sample
     
-    def save_session_data(self):
-        """Save collected session data untuk presentasi"""
-        if not self.test_results:
-            print("⚠️ No test data to save")
-            return None
+    def run_complete_assessment(self):
+        """Jalankan complete fit-to-work assessment"""
+        print("🏭 COMPLETE FIT-TO-WORK ASSESSMENT")
+        print("=" * 60)
+        print("Sistem akan mengevaluasi kesiapan kerja melalui:")
+        print("1. 🗣️ Voice & Speech Analysis")
+        print("2. 🧠 Cognitive Assessment")
+        print("3. 📊 Final Integration & Recommendation")
+        print()
         
         try:
-            # Create comprehensive session report dengan converted data
-            session_data = {
-                'session_info': {
-                    'session_id': self.session_id,
-                    'timestamp': datetime.now().isoformat(),
-                    'total_tests': len(self.test_results),
-                    'system_version': 'Voice Readiness Checker v1.0'
-                },
-                'session_metrics': self.calculate_session_metrics(),
-                'test_results': self.convert_numpy_types(self.test_results)
-            }
+            # Step 1: Voice Analysis (simplified single test)
+            print("🎤 TAHAP 1: VOICE & SPEECH ANALYSIS")
+            print("-" * 40)
             
-            # Save to JSON with safe serialization
-            filename_json = f"session_data_{self.session_id}.json"
-            with open(filename_json, 'w', encoding='utf-8') as f:
-                json.dump(session_data, f, indent=2, ensure_ascii=False)
-            
-            # Save to CSV for easy analysis
-            df = pd.DataFrame(self.test_results)
-            filename_csv = f"session_data_{self.session_id}.csv"
-            df.to_csv(filename_csv, index=False)
-            
-            print(f"💾 Session data saved successfully:")
-            print(f"   📄 {filename_json}")
-            print(f"   📊 {filename_csv}")
-            
-            return session_data
-            
-        except Exception as e:
-            print(f"❌ Error saving session data: {e}")
-            
-            # Fallback: Save CSV only (more robust)
-            try:
-                df = pd.DataFrame(self.test_results)
-                filename_csv = f"session_data_{self.session_id}_backup.csv"
-                df.to_csv(filename_csv, index=False)
-                print(f"💾 Backup saved to: {filename_csv}")
-                return None
-            except Exception as e2:
-                print(f"❌ Backup save also failed: {e2}")
-                return None
-    
-    def calculate_session_metrics(self):
-        """Calculate metrics untuk presentasi"""
-        if not self.test_results:
-            return {}
-        
-        # Pronunciation metrics
-        pronunciation_scores = [float(r['pronunciation_score']) for r in self.test_results]
-        
-        # Readiness metrics  
-        readiness_scores = [float(r['readiness_score']) for r in self.test_results]
-        
-        # Recognition success rate
-        successful_recognitions = sum(1 for r in self.test_results 
-                                    if r['recognized_text'] not in ['TIDAK_TERDETEKSI', 'ERROR'])
-        
-        # Status distribution
-        status_counts = {}
-        for r in self.test_results:
-            status = r['readiness_status']
-            status_counts[status] = status_counts.get(status, 0) + 1
-        
-        # Emotion distribution
-        emotion_counts = {}
-        for r in self.test_results:
-            emotion = r['dominant_emotion']
-            emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
-        
-        metrics = {
-            'pronunciation_analysis': {
-                'mean_score': round(float(np.mean(pronunciation_scores)), 1),
-                'std_score': round(float(np.std(pronunciation_scores)), 1),
-                'min_score': round(float(np.min(pronunciation_scores)), 1),
-                'max_score': round(float(np.max(pronunciation_scores)), 1)
-            },
-            'readiness_analysis': {
-                'mean_score': round(float(np.mean(readiness_scores)), 1),
-                'std_score': round(float(np.std(readiness_scores)), 1),
-                'status_distribution': status_counts
-            },
-            'system_performance': {
-                'total_tests': len(self.test_results),
-                'successful_recognitions': successful_recognitions,
-                'recognition_rate': round(float(successful_recognitions / len(self.test_results) * 100), 1)
-            },
-            'emotion_distribution': emotion_counts
-        }
-        
-        return metrics
-
-# Integrated test function
-def test_integrated_voice_checker():
-    """Complete integrated test: Speech + Emotion + Data Collection"""
-    print("=== VOICE READINESS CHECKER - INTEGRATED SYSTEM ===")
-    print("Speech Recognition + Emotion Analysis + Data Collection\n")
-    
-    checker = IntegratedVoiceChecker()
-    
-    print("🎯 SISTEM TERINTEGRASI:")
-    print("1. Speech Recognition & Pronunciation Assessment")
-    print("2. Voice Emotion/Mood Analysis") 
-    print("3. Automatic Data Collection untuk Presentasi")
-    print()
-    
-    try:
-        while True:
-            # Get varied instruction dan target sentence
-            test_number = len(checker.test_results) + 1
-            instruction_set = checker.get_varied_instructions(test_number - 1)
-            sentence_context = checker.get_contextual_sentences()
-            
+            sentence_context = self.get_contextual_sentences()
             target_sentence = sentence_context['sentence']
             
-            print(f"📝 TEST #{test_number} - {instruction_set['mood'].upper()} MODE")
-            print("=" * 60)
-            print(f"🎯 Target: \"{target_sentence}\"")
-            print(f"📖 Context: {sentence_context['context']}")
-            print(f"🎭 Mood: {instruction_set['instruction']}")
-            print(f"💡 Tip: {instruction_set['example']}")
-            print()
-            
+            print(f"📝 Ucapkan kalimat: \"{target_sentence}\"")
+            print("💡 Bicara dengan natural dan jelas")
             input("Tekan Enter untuk mulai recording...")
             
-            # Record audio
-            audio_data = checker.record_audio(duration=6)
+            # Voice analysis process
+            audio_data = self.record_audio(duration=6)
+            temp_audio_file = self.save_temp_audio(audio_data)
+            recognized_text = self.speech_to_text(temp_audio_file)
+            pronunciation_score = self.calculate_pronunciation_similarity(target_sentence, recognized_text)
+            features = self.extract_voice_features(audio_data)
+            emotion_scores = self.analyze_emotion_patterns(features)
+            voice_result = self.determine_work_readiness(emotion_scores)
             
-            # Save to temporary file
-            temp_audio_file = checker.save_temp_audio(audio_data)
+            print(f"✅ Voice Analysis Complete - Score: {voice_result['readiness_score']}/100")
             
-            # Step 1: Speech Recognition
-            recognized_text = checker.speech_to_text(temp_audio_file)
-            
-            # Step 2: Calculate pronunciation score
-            pronunciation_score = checker.calculate_pronunciation_similarity(target_sentence, recognized_text)
-            
-            # Step 3: Extract voice features
-            features = checker.extract_voice_features(audio_data)
-            
-            # Step 4: Analyze emotions
-            emotion_scores = checker.analyze_emotion_patterns(features)
-            emotion_result = checker.determine_work_readiness(emotion_scores)
-            
-            # Step 5: Collect data dengan mood context
-            test_sample = checker.collect_test_data(
-                target_sentence=target_sentence,
-                recognized_text=recognized_text,
-                pronunciation_score=pronunciation_score,
-                emotion_result=emotion_result,
-                audio_features=features,
-                user_notes=f"Test #{test_number} - {instruction_set['mood']} mode"
-            )
-            
-            # Display results
-            print(f"\n📊 HASIL ANALISIS LENGKAP:")
-            print("=" * 60)
-            
-            print(f"\n🗣️ SPEECH RECOGNITION:")
-            print(f"   Target      : \"{target_sentence}\"")
-            print(f"   Recognized  : \"{recognized_text}\"")
-            print(f"   Pronunciation: {pronunciation_score}%")
-            
-            print(f"\n🧠 EMOTION ANALYSIS:")
-            print(f"   {emotion_result['color']} Status: {emotion_result['status']}")
-            print(f"   🎯 Readiness Score: {emotion_result['readiness_score']}/100")
-            print(f"   🎭 Dominant Emotion: {checker.emotion_labels[emotion_result['dominant_emotion']]}")
-            
-            print(f"\n💡 REKOMENDASI:")
-            print(f"   {emotion_result['recommendation']}")
-            
-            print(f"\n📈 EMOTION BREAKDOWN:")
-            for emotion, score in emotion_scores.items():
-                label = checker.emotion_labels[emotion]
-                bar = "█" * (score // 10) + "░" * (10 - score // 10)
-                print(f"   {label:15} [{bar}] {score:3.0f}%")
-            
-            print(f"\n🔍 VOICE FEATURES:")
-            print(f"   Pitch      : {features['pitch_mean']:.1f} Hz")
-            print(f"   Energy     : {features['rms_energy']:.4f}")
-            print(f"   Speech Rate: {features['speech_rate']:.2f}")
-            print(f"   Clarity    : {features['spectral_centroid_mean']:.0f} Hz")
-            
-            # Cleanup temp file
+            # Cleanup
+            import os
             try:
                 os.unlink(temp_audio_file)
             except:
                 pass
             
-            # Ask for next test
-            print(f"\n📊 Current session: {len(checker.test_results)} tests completed")
+            print()
             
-            continue_test = input("\nLanjut test lagi? (y/n/save): ").lower().strip()
+            # Step 2: Cognitive Assessment
+            print("🧠 TAHAP 2: COGNITIVE ASSESSMENT")
+            print("-" * 40)
+            cognitive_result = self.cognitive_assessment.run_cognitive_battery(num_tests=3)
             
-            if continue_test == 'save':
-                # Save session data
-                session_data = checker.save_session_data()
-                print("\n✅ Session data saved successfully!")
-                break
-            elif continue_test == 'n':
-                # Save session data before exit
-                if checker.test_results:
-                    checker.save_session_data()
-                    print("\n💾 Session data auto-saved before exit")
-                break
+            print(f"✅ Cognitive Assessment Complete - Score: {cognitive_result['average_score']}/100")
+            print()
             
-    except KeyboardInterrupt:
-        print("\n\n⏹️ Test interrupted by user")
-        if checker.test_results:
-            checker.save_session_data()
-            print("💾 Session data saved before exit")
+            # Step 3: Final Integration
+            print("📊 TAHAP 3: FINAL INTEGRATION")
+            print("-" * 40)
+            final_result = self.calculate_final_readiness_score(voice_result, cognitive_result)
+            
+            # Compile complete results
+            complete_assessment = {
+                'session_id': self.session_id,
+                'timestamp': datetime.now().isoformat(),
+                'voice_analysis': {
+                    'target_sentence': target_sentence,
+                    'recognized_text': recognized_text,
+                    'pronunciation_score': pronunciation_score,
+                    'readiness_score': voice_result['readiness_score'],
+                    'dominant_emotion': voice_result['dominant_emotion'],
+                    'emotion_breakdown': emotion_scores
+                },
+                'cognitive_analysis': cognitive_result,
+                'final_assessment': final_result
+            }
+            
+            # Display final results
+            self.display_final_results(complete_assessment)
+            
+            # Save results
+            self.save_complete_assessment(complete_assessment)
+            
+            return complete_assessment
+            
+        except Exception as e:
+            print(f"❌ Error in complete assessment: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+    def display_final_results(self, assessment):
+        """Display comprehensive final results"""
+        print("\n" + "=" * 60)
+        print("🏭 HASIL AKHIR FIT-TO-WORK ASSESSMENT")
+        print("=" * 60)
         
-        if checker.test_results:
-            checker.save_session_data()
-            print("💾 Session data saved despite error")
+        voice = assessment['voice_analysis']
+        cognitive = assessment['cognitive_analysis']
+        final = assessment['final_assessment']
+        
+        print(f"\n📊 SKOR KOMPONEN:")
+        print(f"   🗣️ Voice & Speech  : {voice['readiness_score']}/100")
+        print(f"   🧠 Cognitive       : {cognitive['average_score']}/100")
+        
+        print(f"\n🎯 SKOR AKHIR: {final['final_score']}/100")
+        print(f"📋 STATUS: {final['status']}")
+        print(f"💡 REKOMENDASI: {final['recommendation']}")
+        
+        print(f"\n📈 KONTRIBUSI SKOR:")
+        print(f"   Voice contribution    : {final['voice_contribution']}/100 (60%)")
+        print(f"   Cognitive contribution: {final['cognitive_contribution']}/100 (40%)")
+        
+        print(f"\n🗣️ DETAIL VOICE ANALYSIS:")
+        print(f"   Target    : \"{voice['target_sentence']}\"")
+        print(f"   Recognized: \"{voice['recognized_text']}\"")
+        print(f"   Pronunciation: {voice['pronunciation_score']}%")
+        print(f"   Dominant Emotion: {voice['dominant_emotion']}")
+        
+        print(f"\n🧠 DETAIL COGNITIVE ANALYSIS:")
+        for i, test in enumerate(cognitive['individual_results'], 1):
+            print(f"   Test {i} ({test['test_type']}): {test['score']}/100 - {test['result']}")
+    
+    def save_complete_assessment(self, assessment):
+        """Save complete assessment results"""
+        try:
+            filename = f"complete_assessment_{self.session_id}.json"
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(assessment, f, indent=2, ensure_ascii=False, default=str)
+            
+            print(f"\n💾 Complete assessment saved: {filename}")
+            return filename
+            
+        except Exception as e:
+            print(f"❌ Error saving assessment: {e}")
+            return None
+
+# Main test function
+def test_complete_fit_to_work_system():
+    """Test complete integrated fit-to-work system"""
+    print("🏭 COMPLETE FIT-TO-WORK SYSTEM TEST")
+    print("=" * 60)
+    print("Sistem lengkap untuk assessment kesiapan kerja")
+    print()
+    
+    checker = CompleteFitToWorkChecker()
+    
+    print("⚠️ DISCLAIMER:")
+    print("Ini adalah prototype untuk tujuan edukasi.")
+    print("Untuk penggunaan real workplace, perlu validasi medical professional.")
+    print()
+    
+    input("Tekan Enter untuk memulai complete assessment...")
+    
+    result = checker.run_complete_assessment()
+    
+    if result:
+        print("\n✅ COMPLETE ASSESSMENT FINISHED!")
+        print("📊 Semua data tersimpan untuk analisis lebih lanjut")
+    else:
+        print("\n❌ Assessment tidak berhasil diselesaikan")
 
 if __name__ == "__main__":
-    test_integrated_voice_checker()
+    test_complete_fit_to_work_system()
