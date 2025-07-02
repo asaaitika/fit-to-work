@@ -1,0 +1,6 @@
+Test_Number,Voice_Score,Cognitive_Score,Final_Score,Status,Dominant_Emotion,Pronunciation_Accuracy
+1,49.5,63.3,55.0,🔴 NOT FIT TO WORK,ready,48.4
+2,80.5,70.3,76.4,🟢 FIT TO WORK,ready,52.8
+3,49.0,55.3,51.5,🔴 NOT FIT TO WORK,ready,78.3
+4,80.5,67.7,75.4,🟢 FIT TO WORK,ready,44.4
+5,80.5,23.0,57.5,🔴 NOT FIT TO WORK,ready,73.7
