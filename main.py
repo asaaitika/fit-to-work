@@ -31,25 +31,6 @@ def check_audio_mode():
         # Force cloud mode if path contains mount/src (Streamlit Cloud signature)
         if '/mount/src' in os.getcwd():
             return "streamlit_native"
-            
-        # If we can't detect reliably, try a sounddevice test
-        import sounddevice as sd
-        try:
-            # Try to actually query devices - this is the real test
-            devices = sd.query_devices()
-            
-            # Even if devices exist, check if we can actually record
-            try:
-                # Quick test record (will fail in cloud)
-                test_rec = sd.rec(frames=1, samplerate=16000, channels=1, dtype='float32')
-                sd.wait()
-                return "sounddevice"
-            except:
-                return "streamlit_native"
-                
-        except Exception:
-            return "streamlit_native"
-            
     except Exception:
         return "streamlit_native"
 
@@ -63,7 +44,6 @@ except:
 # Override for streamlit.app domain - simple hardcode approach
 try:
     import urllib.parse
-    # If we're on streamlit.app, force cloud mode
     if 'streamlit.app' in str(st.get_option('server.headless')):
         AUDIO_MODE = "streamlit_native"
 except:
@@ -98,27 +78,327 @@ st.markdown("""
     margin-bottom: 2rem;
     font-weight: bold;
 }
-.success-box {
-    background-color: #d4edda;
-    padding: 1rem;
-    border-radius: 10px;
-    border-left: 5px solid #28a745;
-    margin: 1rem 0;
-}
-.warning-box {
+            
+.timer-warning {
     background-color: #fff3cd;
-    padding: 1rem;
-    border-radius: 10px;
-    border-left: 5px solid #ffc107;
-    margin: 1rem 0;
+    color: #856404;
+    padding: 0.75rem;
+    border-radius: 0.25rem;
+    border-left: 5px solid #ffeeba;
+    margin-bottom: 1rem;
+    font-weight: bold;
+    animation: pulse 1.5s infinite;
 }
-.danger-box {
+
+.timer-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    border-left: 5px solid #bee5eb;
+}
+
+.time-result {
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+    color: #6c757d;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    border-left: 3px solid #6c757d;
+}
+
+.time-fast {
+    color: #28a745;
+    border-left-color: #28a745;
+}
+
+.time-medium {
+    color: #fd7e14;
+    border-left-color: #fd7e14;
+}
+
+.time-slow {
+    color: #dc3545;
+    border-left-color: #dc3545;
+}
+            
+/* CSS untuk memperbaiki tampilan tabel reaction time test */
+
+/* Styling untuk tabel reaction time */
+.reaction-time-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.reaction-time-table th {
+    background-color: #343a40;
+    color: white;
+    padding: 12px 15px;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid #454d55;
+}
+
+.reaction-time-table td {
+    padding: 10px 15px;
+    border: 1px solid #454d55;
+    text-align: center;
+}
+
+/* Warna baris bergantian */
+.reaction-time-table tr:nth-child(odd) {
+    background-color: #2c3034;
+    color: white;
+}
+
+.reaction-time-table tr:nth-child(even) {
+    background-color: #212529;
+    color: white;
+}
+
+/* Warna untuk kategori waktu */
+.reaction-time-excellent {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.reaction-time-good {
+    color: #17a2b8;
+    font-weight: bold;
+}
+
+.reaction-time-average {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.reaction-time-slow {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Warna untuk skor */
+.reaction-score {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.score-excellent {
+    color: #28a745;
+}
+
+.score-good {
+    color: #17a2b8;
+}
+
+.score-average {
+    color: #ffc107;
+}
+
+.score-slow {
+    color: #dc3545;
+}
+
+/* Ikon kategori */
+.icon-excellent, .icon-good, .icon-average, .icon-slow {
+    font-size: 1.2em;
+    margin-right: 5px;
+}
+
+.icon-excellent {
+    color: gold;
+}
+
+.icon-good {
+    color: #17a2b8;
+}
+
+.icon-average {
+    color: #ffc107;
+}
+
+.icon-slow {
+    color: #dc3545;
+}
+
+/* Pulse animation for timer */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+/* Timer counter with progress bar */
+.timer-counter {
+    font-size: 1.25rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+    color: #dc3545;
+    position: relative;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Advanced visual timer with progress */
+.visual-timer {
+    position: relative;
+    height: 40px;
+    margin: 15px 0;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timer-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+    transition: width 1s linear;
+    z-index: 1;
+}
+
+.timer-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #343a40;
+    font-weight: bold;
+    z-index: 2;
+}
+
+/* Score impact visualization */
+.score-impact {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.max-score {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #28a745;
+    padding: 5px 10px;
+    background-color: #d4edda;
+    border-radius: 3px;
+    margin-right: 10px;
+}
+
+.time-penalty {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #dc3545;
+    padding: 5px 10px;
     background-color: #f8d7da;
-    padding: 1rem;
-    border-radius: 10px;
-    border-left: 5px solid #dc3545;
-    margin: 1rem 0;
+    border-radius: 3px;
+    margin: 0 10px;
 }
+
+.final-score {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #007bff;
+    padding: 5px 10px;
+    background-color: #cce5ff;
+    border-radius: 3px;
+    margin-left: 10px;
+}
+
+/* Table for time impact */
+.time-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+.time-table th {
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.time-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.time-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.time-table .time-col {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.time-table .score-col {
+    color: #007bff;
+    font-weight: bold;
+}
+
+/* Enhanced box designs */
+.success-box, .warning-box, .danger-box {
+    color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 15px 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.success-box {
+    background-color: #0ead69; /* Vibrant green */
+    border-left: 7px solid #09874f;
+}
+
+.warning-box {
+    background-color: #ff9f1c; /* Bright orange */
+    border-left: 7px solid #e67e00;
+}
+
+.danger-box {
+    background-color: #e63946; /* Bold red */
+    border-left: 7px solid #c1121f;
+}
+
+.success-box:hover, .warning-box:hover, .danger-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+/* Status icon animation */
+.status-icon {
+    display: inline-block;
+    margin-right: 8px;
+    animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-5px); }
+}            
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,7 +410,6 @@ class RealVoiceChecker:
         self.sample_rate = sample_rate
         self.recognizer = sr.Recognizer()
         
-        # Emotion labels dari kode asli
         self.emotion_labels = {
             'ready': 'Siap & Fokus',
             'tired': 'Lelah/Mengantuk', 
@@ -139,7 +418,6 @@ class RealVoiceChecker:
             'uncertain': 'Ragu/Tidak Yakin'
         }
         
-        # Sample sentences dari kode asli
         self.sample_sentences = [
             "Saya siap kerja",
             "Keselamatan utama", 
@@ -161,32 +439,25 @@ class RealVoiceChecker:
             st.success("✅ Audio recorded successfully!")
             
             try:
-                # Use file-based approach only (compatible with version 17)
                 import tempfile
                 import uuid
                 
-                # Use a fixed temp directory
                 temp_dir = "/tmp" if os.path.exists("/tmp") else tempfile.gettempdir()
                 
-                # Create unique filename
                 temp_filename = f"voice_record_{uuid.uuid4().hex}.wav"
                 temp_path = os.path.join(temp_dir, temp_filename)
                 
-                # Write audio bytes to file
                 with open(temp_path, 'wb') as f:
                     f.write(audio_bytes.getvalue())
                 
-                # Verify file exists
                 if not os.path.exists(temp_path):
                     st.error("Failed to save audio file")
                     return None, None
                 
                 st.info(f"📁 Audio saved to: {temp_path}")
                 
-                # Load audio using librosa
                 audio_data, sample_rate = librosa.load(temp_path, sr=self.sample_rate)
                 
-                # Return both audio data and the file path
                 return audio_data, temp_path
                 
             except Exception as e:
@@ -206,7 +477,6 @@ class RealVoiceChecker:
             st.info(f"🎤 Recording selama {duration} detik...")
             st.info("📢 Ucapkan kalimat target dengan jelas!")
             
-            # Audio recording menggunakan sounddevice
             audio_data = sd.rec(int(duration * self.sample_rate), 
                               samplerate=self.sample_rate, 
                               channels=1, 
@@ -573,7 +843,6 @@ class RealVoiceChecker:
                 'emotion_breakdown': emotion_scores
             }
         
-        # NEW IMPROVED FORMULA
         # 1. Get dominant emotion first
         dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])
         dominant_name, dominant_score = dominant_emotion
@@ -661,7 +930,6 @@ class RealVoiceChecker:
             except Exception as e:
                 st.warning(f"⚠️ Could not delete temp file: {e}")
 
-# Cognitive Assessment Classes (unchanged)
 class RealCognitiveAssessment:
     """Cognitive assessment dengan interactive Streamlit UI"""
     
@@ -674,9 +942,20 @@ class RealCognitiveAssessment:
             'sequence': self.sequence_test_streamlit
         }
         print("🧠 Cognitive Assessment Module initialized")
-    
+
     def attention_test_streamlit(self):
-        """Attention test dengan Streamlit UI"""
+        """Attention test dengan timer helper"""
+        
+        timer_helper = TimerHelper()
+        
+        st.markdown(
+            timer_helper.create_timer_warning(
+                "Hitung semua huruf dengan cepat dan teliti.", 
+                5
+            ), 
+            unsafe_allow_html=True
+        )
+        
         st.write("Hitung berapa huruf 'A' dalam teks berikut:")
         
         texts = [
@@ -695,21 +974,98 @@ class RealCognitiveAssessment:
         
         st.code(selected_text, language=None)
         
+        current_time = time.time()
+        elapsed_time = current_time - st.session_state.attention_start_time
+        max_time = 15  # Waktu maksimal untuk tes atensi
+        
+        # Render visual timer
+        st.markdown(
+            timer_helper.create_visual_timer(elapsed_time, max_time),
+            unsafe_allow_html=True
+        )
+        
+        penalty = int(elapsed_time * 5)
+        current_score = max(0, 100 - penalty)
+        
+        st.markdown(
+            timer_helper.create_score_impact(100, penalty, current_score),
+            unsafe_allow_html=True
+        )
+        
+        st.markdown(
+            timer_helper.create_auto_refresh_timer(
+                st.session_state.attention_start_time,
+                max_time=max_time
+            ),
+            unsafe_allow_html=True
+        )
+        
         user_answer = st.number_input("Berapa huruf 'A'?", min_value=0, max_value=50, value=0)
         
         if st.button("Submit Answer", type="primary"):
             response_time = time.time() - st.session_state.attention_start_time
             
             if user_answer == correct_count:
-                score = max(0, 100 - int(response_time * 5))
+                penalty = int(response_time * 5)
+                score = max(0, 100 - penalty)
                 result = "✅ BENAR"
                 st.success(f"{result} - Score: {score}/100")
+                
+                st.markdown(
+                    timer_helper.create_time_result(
+                        response_time,
+                        penalty,
+                        100,
+                        score,
+                        'attention'
+                    ),
+                    unsafe_allow_html=True
+                )
+                
+                if response_time < 8:
+                    st.markdown("""
+                    <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>🏆 Excellent!</strong> Kecepatan Anda sangat baik. Pertahankan!
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif response_time < 12:
+                    st.markdown("""
+                    <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>👍 Good!</strong> Coba tingkatkan sedikit lagi kecepatan untuk skor lebih tinggi.
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>💪 Perlu ditingkatkan!</strong> Latih kemampuan observasi cepat untuk meningkatkan skor.
+                    </div>
+                    """, unsafe_allow_html=True)
+                
             else:
-                score = max(0, 50 - int(response_time * 3))
+                penalty = int(response_time * 3)
+                score = max(0, 50 - penalty)
                 result = f"❌ SALAH (jawaban: {correct_count})"
                 st.error(f"{result} - Score: {score}/100")
+                
+                st.markdown(
+                    f"""
+                    <div class="time-result time-slow">
+                        ⏱️ <strong>Analisis Waktu:</strong>
+                        <br>Waktu pengerjaan: {response_time:.2f} detik
+                        <br>Penalti waktu: -{penalty} poin
+                        <br>Skor dasar untuk jawaban salah: 50/100
+                        <br>Skor akhir dengan penalti waktu: {score}/100
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+                st.markdown("""
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                    <strong>🔄 Coba lagi!</strong> Fokus pada keseimbangan antara kecepatan dan akurasi.
+                </div>
+                """, unsafe_allow_html=True)
             
-            # Reset untuk test berikutnya
             del st.session_state.attention_text
             del st.session_state.attention_start_time
             
@@ -720,6 +1076,9 @@ class RealCognitiveAssessment:
                 'correct': user_answer == correct_count,
                 'result': result
             }
+        
+        time.sleep(0.1)
+        st.rerun()
         
         return None
     
@@ -759,7 +1118,6 @@ class RealCognitiveAssessment:
                         result = f"❌ SALAH (benar: {st.session_state.memory_sequence})"
                         st.error(f"{result} - Score: {score}/100")
                     
-                    # Reset
                     sequence_copy = st.session_state.memory_sequence.copy()
                     del st.session_state.memory_sequence
                     del st.session_state.memory_shown
@@ -779,7 +1137,50 @@ class RealCognitiveAssessment:
         return None
     
     def reaction_time_test_streamlit(self):
-        """Reaction time test"""
+        """Reaction time test dengan tabel yang lebih mudah dilihat"""
+        
+        st.markdown("""
+        <div class="timer-warning">
+            ⏱️ PERHATIAN: Test ini mengukur KECEPATAN REAKSI Anda!
+            <br>Skor berdasarkan seberapa cepat Anda bereaksi terhadap stimulus.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("ℹ️ Cara Penilaian Waktu Reaksi"):
+            st.markdown("""
+            <table class="reaction-time-table">
+                <tr>
+                    <th>Waktu Reaksi</th>
+                    <th>Kategori</th>
+                    <th>Skor</th>
+                </tr>
+                <tr>
+                    <td class="reaction-time-excellent">< 0.5 detik</td>
+                    <td><span class="icon-excellent">🏆</span> EXCELLENT</td>
+                    <td class="reaction-score score-excellent">100/100</td>
+                </tr>
+                <tr>
+                    <td class="reaction-time-good">0.5 - 1.0 detik</td>
+                    <td><span class="icon-good">✅</span> GOOD</td>
+                    <td class="reaction-score score-good">80/100</td>
+                </tr>
+                <tr>
+                    <td class="reaction-time-average">1.0 - 2.0 detik</td>
+                    <td><span class="icon-average">⚠️</span> AVERAGE</td>
+                    <td class="reaction-score score-average">60/100</td>
+                </tr>
+                <tr>
+                    <td class="reaction-time-slow">> 2.0 detik</td>
+                    <td><span class="icon-slow">❌</span> SLOW</td>
+                    <td class="reaction-score score-slow">30/100</td>
+                </tr>
+            </table>
+            
+            <p style="margin-top: 15px; color: #e9ecef;">
+            <strong>Tips:</strong> Fokuskan pandangan Anda ke layar dan persiapkan jari Anda di atas tombol untuk reaksi tercepat!
+            </p>
+            """, unsafe_allow_html=True)
+        
         st.write("Klik tombol 'REACT!' secepat mungkin saat melihat '🚨 GO!'")
         
         if 'reaction_waiting' not in st.session_state:
@@ -795,26 +1196,147 @@ class RealCognitiveAssessment:
             elapsed = current_time - st.session_state.reaction_start_time
             
             if elapsed >= st.session_state.reaction_delay:
-                st.markdown("### 🚨 GO!")
-                if st.button("REACT!", type="primary"):
+                st.markdown("""
+                <div style="text-align: center; margin: 20px 0; animation: pulse 0.5s infinite alternate;">
+                    <h1 style="font-size: 5rem; color: #dc3545;">🚨 GO!</h1>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Timer mulai berjalan dari muncul GO!
+                reaction_timer_start = time.time() - (st.session_state.reaction_start_time + st.session_state.reaction_delay)
+                
+                # Visual timer untuk reaction
+                st.markdown(f"""
+                <div class="visual-timer" style="background-color: #f8d7da;">
+                    <div class="timer-progress" style="background: linear-gradient(90deg, #28a745, #dc3545); width: {min(100, reaction_timer_start * 100)}%;"></div>
+                    <div class="timer-text">⏱️ {reaction_timer_start:.3f} detik</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <script>
+                    function updateReactionTimer() {
+                        const startTime = %s;
+                        const timerElement = document.querySelector('.timer-text');
+                        const progressBar = document.querySelector('.timer-progress');
+                        
+                        if (timerElement && progressBar) {
+                            setInterval(() => {
+                                const currentTime = new Date().getTime() / 1000;
+                                const elapsedTime = currentTime - startTime;
+                                timerElement.textContent = `⏱️ ${elapsedTime.toFixed(3)} detik`;
+                                
+                                // Update progress width - max at 100%%
+                                const width = Math.min(100, elapsedTime * 100);
+                                progressBar.style.width = width + '%%';
+                                
+                                // Change color based on time
+                                if(elapsedTime < 0.5) {
+                                    timerElement.style.color = '#28a745';
+                                } else if(elapsedTime < 1.0) {
+                                    timerElement.style.color = '#ffc107';
+                                } else {
+                                    timerElement.style.color = '#dc3545';
+                                }
+                            }, 10); // Update every 10ms for smoother timer
+                        }
+                    }
+                    
+                    document.addEventListener('DOMContentLoaded', updateReactionTimer);
+                </script>
+                """ % (time.time()), unsafe_allow_html=True)
+                
+                if st.button("REACT!", type="primary", use_container_width=True):
                     reaction_time = time.time() - (st.session_state.reaction_start_time + st.session_state.reaction_delay)
                     
+                    # Determine score and class based on reaction time
                     if reaction_time < 0.5:
                         score = 100
                         result = "🏆 EXCELLENT"
+                        time_class = "time-fast"
+                        icon_class = "icon-excellent"
                     elif reaction_time < 1.0:
                         score = 80
                         result = "✅ GOOD"
+                        time_class = "time-medium"
+                        icon_class = "icon-good"
                     elif reaction_time < 2.0:
                         score = 60
                         result = "⚠️ AVERAGE"
+                        time_class = "time-slow"
+                        icon_class = "icon-average"
                     else:
                         score = 30
                         result = "❌ SLOW"
+                        time_class = "time-slow"
+                        icon_class = "icon-slow"
                     
                     st.success(f"{result} - Reaction time: {reaction_time:.3f}s - Score: {score}/100")
                     
-                    # Reset
+                    st.markdown(f"""
+                    <div class="time-result {time_class}">
+                        <strong>⏱️ Analisis Waktu Reaksi:</strong> {reaction_time:.3f} detik
+                    </div>
+                    
+                    <div class="score-impact">
+                        <div class="final-score">Skor: {score}/100</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div style="margin-top: 15px; padding: 15px; border-radius: 8px; background-color: #212529; color: white;">
+                        <h3>Hasil Reaction Time Test</h3>
+                        <div style="display: flex; align-items: center; margin-top: 10px;">
+                            <div style="flex: 1;">
+                                <span class="{icon_class}" style="font-size: 2rem;">{result.split()[0]}</span>
+                            </div>
+                            <div style="flex: 2;">
+                                <div style="font-size: 1.2rem; font-weight: bold;">{result.split()[1]}</div>
+                                <div style="font-size: 0.9rem; opacity: 0.8;">Kategori</div>
+                            </div>
+                            <div style="flex: 1; text-align: right;">
+                                <div style="font-size: 1.5rem; font-weight: bold;" class="reaction-score score-{result.split()[1].lower()}">{score}/100</div>
+                                <div style="font-size: 0.9rem; opacity: 0.8;">Skor</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; background-color: #2c3034; padding: 10px; border-radius: 5px;">
+                            <div style="font-weight: bold; margin-bottom: 5px;">Waktu Reaksi Anda:</div>
+                            <div style="font-size: 1.8rem; font-weight: bold; color: #{time_class.replace('time-', '') == 'fast' and '28a745' or time_class.replace('time-', '') == 'medium' and 'ffc107' or 'dc3545'};">
+                                {reaction_time:.3f} detik
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Reaction time comparison
+                    st.markdown("""
+                    <div style="margin-top: 15px; padding: 15px; border-radius: 8px; background-color: #212529; color: white;">
+                        <h3>Perbandingan Waktu Reaksi</h3>
+                        <table class="reaction-time-table" style="margin-top: 10px;">
+                            <tr>
+                                <th>Kelompok</th>
+                                <th>Waktu Reaksi Tipikal</th>
+                            </tr>
+                            <tr>
+                                <td>Atlet profesional</td>
+                                <td class="reaction-time-excellent">0.1 - 0.2 detik</td>
+                            </tr>
+                            <tr>
+                                <td>Rata-rata orang</td>
+                                <td class="reaction-time-good">0.2 - 0.5 detik</td>
+                            </tr>
+                            <tr>
+                                <td>Saat lelah/mengantuk</td>
+                                <td class="reaction-time-average">0.5 - 1.0 detik</td>
+                            </tr>
+                            <tr>
+                                <td>Setelah konsumsi alkohol</td>
+                                <td class="reaction-time-slow">1.0+ detik</td>
+                            </tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     del st.session_state.reaction_waiting
                     del st.session_state.reaction_delay
                     del st.session_state.reaction_start_time
@@ -826,15 +1348,52 @@ class RealCognitiveAssessment:
                         'correct': True,
                         'result': f"{result} ({reaction_time:.3f}s)"
                     }
+                
+                time.sleep(0.01)
+                st.rerun()
             else:
-                st.write("Tunggu instruksi...")
+                # Waiting message with countdown
+                remaining = st.session_state.reaction_delay - elapsed
+                
+                if remaining > 0.5:
+                    st.write("Tunggu instruksi...")
+                    
+                    st.markdown("""
+                    <div style="text-align: center; margin: 20px 0;">
+                        <div style="font-size: 1.5rem; color: #e9ecef;">
+                            Bersiap...
+                        </div>
+                        <div style="display: flex; justify-content: center; margin-top: 10px;">
+                            <div style="width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; margin: 0 5px; animation: bounce 0.6s infinite alternate;"></div>
+                            <div style="width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; margin: 0 5px; animation: bounce 0.6s 0.2s infinite alternate;"></div>
+                            <div style="width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; margin: 0 5px; animation: bounce 0.6s 0.4s infinite alternate;"></div>
+                        </div>
+                    </div>
+                    
+                    <style>
+                    @keyframes bounce {
+                        from { transform: translateY(0); }
+                        to { transform: translateY(-10px); }
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                
                 time.sleep(0.1)
                 st.rerun()
         
         return None
     
+
     def simple_math_test_streamlit(self):
-        """Math test"""
+        """Math test with advanced visual timer and score impact visualization"""
+        
+        st.markdown("""
+        <div class="timer-warning">
+            ⏱️ PERHATIAN: Test ini menggunakan WAKTU! Semakin cepat menjawab, semakin tinggi skor Anda.
+            <br>Setiap detik akan mengurangi 10 poin untuk jawaban benar.
+        </div>
+        """, unsafe_allow_html=True)
+        
         if 'math_problem' not in st.session_state:
             problems = [
                 (lambda: (random.randint(10, 50), random.randint(5, 20)), lambda a, b: a + b, "+"),
@@ -855,21 +1414,204 @@ class RealCognitiveAssessment:
         st.write("Hitung dengan cepat:")
         st.markdown(f"### {problem['a']} {problem['symbol']} {problem['b']} = ?")
         
+        # Advanced visual timer
+        current_time = time.time()
+        elapsed_time = current_time - st.session_state.math_start_time
+        max_time = 10  # seconds
+        progress_percent = min(100, (elapsed_time / max_time) * 100)
+        
+        # Color changes based on time
+        if elapsed_time < 3:
+            timer_color = "#28a745"
+            time_class = "time-fast"
+        elif elapsed_time < 6:
+            timer_color = "#ffc107"
+            time_class = "time-medium"
+        else:
+            timer_color = "#dc3545"
+            time_class = "time-slow"
+        
+        st.markdown(f"""
+        <div class="visual-timer">
+            <div class="timer-progress" style="width: {progress_percent}%;"></div>
+            <div class="timer-text">⏱️ {elapsed_time:.1f} detik</div>
+        </div>
+        
+        <div class="score-impact">
+            <div class="max-score">Start: 100</div>
+            <div class="time-penalty">-{int(elapsed_time * 10)} poin</div>
+            <div class="final-score">Current: {max(0, 100 - int(elapsed_time * 10))}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("Lihat pengaruh waktu pada skor"):
+            st.markdown("""
+            <table class="time-table">
+                <tr>
+                    <th>Waktu (detik)</th>
+                    <th>Penalti</th>
+                    <th>Skor Maksimal</th>
+                </tr>
+                <tr>
+                    <td class="time-col">1</td>
+                    <td>-10 poin</td>
+                    <td class="score-col">90/100</td>
+                </tr>
+                <tr>
+                    <td class="time-col">3</td>
+                    <td>-30 poin</td>
+                    <td class="score-col">70/100</td>
+                </tr>
+                <tr>
+                    <td class="time-col">5</td>
+                    <td>-50 poin</td>
+                    <td class="score-col">50/100</td>
+                </tr>
+                <tr>
+                    <td class="time-col">7</td>
+                    <td>-70 poin</td>
+                    <td class="score-col">30/100</td>
+                </tr>
+                <tr>
+                    <td class="time-col">10+</td>
+                    <td>-100 poin</td>
+                    <td class="score-col">0/100</td>
+                </tr>
+            </table>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <script>
+            // Auto-refresh function
+            function refreshTimer() {
+                const currentTime = new Date().getTime() / 1000;
+                const startTime = %s;
+                const elapsedTime = currentTime - startTime;
+                const maxTime = 10;
+                
+                // Update progress bar
+                const progressPercent = Math.min(100, (elapsedTime / maxTime) * 100);
+                const progressBar = document.querySelector('.timer-progress');
+                const timerText = document.querySelector('.timer-text');
+                const timePenalty = document.querySelector('.time-penalty');
+                const finalScore = document.querySelector('.final-score');
+                
+                if(progressBar && timerText) {
+                    progressBar.style.width = progressPercent + '%%';
+                    timerText.textContent = '⏱️ ' + elapsedTime.toFixed(1) + ' detik';
+                    
+                    // Update penalty and score
+                    if(timePenalty && finalScore) {
+                        const penalty = Math.floor(elapsedTime * 10);
+                        const currentScore = Math.max(0, 100 - penalty);
+                        timePenalty.textContent = '-' + penalty + ' poin';
+                        finalScore.textContent = 'Current: ' + currentScore;
+                    }
+                    
+                    // Change color based on time
+                    if(elapsedTime < 3) {
+                        timerText.style.color = '#28a745';
+                    } else if(elapsedTime < 6) {
+                        timerText.style.color = '#ffc107';
+                    } else {
+                        timerText.style.color = '#dc3545';
+                    }
+                }
+                
+                // Refresh every 100ms for smooth animation
+                setTimeout(refreshTimer, 100);
+            }
+            
+            // Start the refresh cycle
+            document.addEventListener('DOMContentLoaded', refreshTimer);
+        </script>
+        """ % st.session_state.math_start_time, unsafe_allow_html=True)
+        
         user_answer = st.number_input("Jawaban:", value=0)
         
-        if st.button("Submit Math Answer", type="primary"):
+        submit_col1, submit_col2 = st.columns([1, 3])
+        
+        with submit_col1:
+            submit_button = st.button("Submit", type="primary")
+        
+        with submit_col2:
+            st.markdown(f"""
+            <div style="padding-top: 3px;">
+                Jawaban cepat = skor tinggi!
+            </div>
+            """, unsafe_allow_html=True)
+        
+        if submit_button:
             response_time = time.time() - st.session_state.math_start_time
+            
+            # Determine time classification
+            time_class = "time-fast" if response_time < 5 else "time-medium" if response_time < 10 else "time-slow"
             
             if user_answer == problem['answer']:
                 score = max(0, 100 - int(response_time * 10))
                 result = "✅ BENAR"
                 st.success(f"{result} - Score: {score}/100")
+                
+                st.markdown(f"""
+                <div class="time-result {time_class}">
+                    <strong>⏱️ Analisis Waktu Pengerjaan:</strong>
+                </div>
+                
+                <div class="score-impact">
+                    <div class="max-score">Base: 100</div>
+                    <div class="time-penalty">-{int(response_time * 10)} poin</div>
+                    <div class="final-score">Final: {score}</div>
+                </div>
+                
+                <p>Anda menyelesaikan soal dalam {response_time:.2f} detik. 
+                Setiap detik mengurangi 10 poin dari skor maksimal.</p>
+                """, unsafe_allow_html=True)
+                
+                if response_time < 3:
+                    st.markdown("""
+                    <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>🏆 Excellent!</strong> Kecepatan Anda sangat baik. Pertahankan!
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif response_time < 6:
+                    st.markdown("""
+                    <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>👍 Good!</strong> Coba tingkatkan sedikit lagi kecepatan untuk skor lebih tinggi.
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>💪 Perlu ditingkatkan!</strong> Latih kemampuan berhitung cepat untuk meningkatkan skor.
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
             else:
                 score = max(0, 30 - int(response_time * 5))
                 result = f"❌ SALAH (jawaban: {problem['answer']})"
                 st.error(f"{result} - Score: {score}/100")
+                
+                st.markdown(f"""
+                <div class="time-result {time_class}">
+                    <strong>⏱️ Analisis Waktu Pengerjaan:</strong>
+                </div>
+                
+                <div class="score-impact">
+                    <div class="max-score">Base: 30</div>
+                    <div class="time-penalty">-{int(response_time * 5)} poin</div>
+                    <div class="final-score">Final: {score}</div>
+                </div>
+                
+                <p>Anda menyelesaikan soal dalam {response_time:.2f} detik. 
+                Untuk jawaban salah, setiap detik mengurangi 5 poin dari skor dasar 30.</p>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                    <strong>🔄 Coba lagi!</strong> Fokus pada keseimbangan antara kecepatan dan akurasi.
+                </div>
+                """, unsafe_allow_html=True)
             
-            # Reset
             del st.session_state.math_problem
             del st.session_state.math_start_time
             
@@ -881,8 +1623,11 @@ class RealCognitiveAssessment:
                 'result': result
             }
         
+        time.sleep(0.1)
+        st.rerun()
+        
         return None
-    
+
     def sequence_test_streamlit(self):
         """Sequence test"""
         if 'sequence_pattern' not in st.session_state:
@@ -1026,11 +1771,151 @@ class RealCognitiveAssessment:
         
         return None
 
+class TimerHelper:
+    """Helper class untuk menstandarisasi timer di semua cognitive test"""
+    
+    @staticmethod
+    def create_timer_warning(message, penalty):
+        """Membuat peringatan timer standard"""
+        return f"""
+        <div class="timer-warning">
+            ⏱️ PERHATIAN: Test ini menggunakan WAKTU! Semakin cepat menjawab, semakin tinggi skor Anda.
+            <br>{message}
+            <br>Setiap detik akan mengurangi {penalty} poin untuk jawaban benar.
+        </div>
+        """
+    
+    @staticmethod
+    def create_timer_info(benar_penalty, salah_penalty, target):
+        """Membuat info timer standard"""
+        return f"""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> -{benar_penalty} poin per detik (benar), -{salah_penalty} poin per detik (salah)
+            <br>Target waktu ideal: {target}
+        </div>
+        """
+    
+    @staticmethod
+    def create_visual_timer(elapsed_time, max_time=10):
+        """Membuat visual timer dengan progress bar"""
+        progress_percent = min(100, (elapsed_time / max_time) * 100)
+        
+        # Color changes based on time
+        if elapsed_time < max_time * 0.3:  # First 30%
+            timer_color = "#28a745"
+            time_class = "time-fast"
+        elif elapsed_time < max_time * 0.6:  # 30-60%
+            timer_color = "#ffc107"
+            time_class = "time-medium"
+        else:  # > 60%
+            timer_color = "#dc3545"
+            time_class = "time-slow"
+        
+        return f"""
+        <div class="visual-timer">
+            <div class="timer-progress" style="width: {progress_percent}%;"></div>
+            <div class="timer-text" style="color: {timer_color};">⏱️ {elapsed_time:.1f} detik</div>
+        </div>
+        """
+    
+    @staticmethod
+    def create_score_impact(base_score, penalty, current_score):
+        """Membuat visualisasi dampak skor"""
+        return f"""
+        <div class="score-impact">
+            <div class="max-score">Base: {base_score}</div>
+            <div class="time-penalty">-{penalty} poin</div>
+            <div class="final-score">Current: {current_score}</div>
+        </div>
+        """
+    
+    @staticmethod
+    def create_time_result(response_time, penalty, max_score, final_score, test_type):
+        """Membuat hasil analisis waktu"""
+        
+        # Determine time class based on test type
+        time_class = "time-medium"  # default
+        
+        if test_type == 'math':
+            time_class = "time-fast" if response_time < 3 else "time-medium" if response_time < 6 else "time-slow"
+        elif test_type == 'sequence':
+            time_class = "time-fast" if response_time < 5 else "time-medium" if response_time < 8 else "time-slow"
+        elif test_type == 'attention':
+            time_class = "time-fast" if response_time < 8 else "time-medium" if response_time < 12 else "time-slow"
+        elif test_type == 'memory':
+            time_class = "time-fast" if response_time < 10 else "time-medium" if response_time < 15 else "time-slow"
+        elif test_type == 'reaction':
+            time_class = "time-fast" if response_time < 0.5 else "time-medium" if response_time < 1.0 else "time-slow"
+        
+        return f"""
+        <div class="time-result {time_class}">
+            ⏱️ <strong>Analisis Waktu:</strong>
+            <br>Waktu pengerjaan: {response_time:.2f} detik
+            <br>Penalti waktu: -{penalty} poin
+            <br>Skor maksimal tanpa penalti waktu: {max_score}/100
+            <br>Skor akhir dengan penalti waktu: {final_score}/100
+        </div>
+        """
+    
+    @staticmethod
+    def create_auto_refresh_timer(start_time, element_selector='.timer-text', progress_selector='.timer-progress', max_time=10):
+        """Membuat JavaScript untuk auto-refresh timer"""
+        return f"""
+        <script>
+            // Auto-refresh function
+            function refreshTimer() {{
+                const currentTime = new Date().getTime() / 1000;
+                const startTime = {start_time};
+                const elapsedTime = currentTime - startTime;
+                const maxTime = {max_time};
+                
+                // Update progress bar
+                const progressPercent = Math.min(100, (elapsedTime / maxTime) * 100);
+                const progressBar = document.querySelector('{progress_selector}');
+                const timerText = document.querySelector('{element_selector}');
+                
+                if(progressBar && timerText) {{
+                    progressBar.style.width = progressPercent + '%';
+                    timerText.textContent = '⏱️ ' + elapsedTime.toFixed(1) + ' detik';
+                    
+                    // Change color based on time
+                    if(elapsedTime < maxTime * 0.3) {{
+                        timerText.style.color = '#28a745';
+                    }} else if(elapsedTime < maxTime * 0.6) {{
+                        timerText.style.color = '#ffc107';
+                    }} else {{
+                        timerText.style.color = '#dc3545';
+                    }}
+                }}
+                
+                // Refresh every 100ms for smooth animation
+                setTimeout(refreshTimer, 100);
+            }}
+            
+            // Start the refresh cycle
+            document.addEventListener('DOMContentLoaded', refreshTimer);
+        </script>
+        """
+    
+    @staticmethod
+    def get_time_penalty_info(test_type, is_correct=True):
+        """Mendapatkan informasi penalti waktu berdasarkan jenis tes"""
+        if test_type == 'math':
+            return 10 if is_correct else 5, 3
+        elif test_type == 'sequence':
+            return 8 if is_correct else 4, 5
+        elif test_type == 'attention':
+            return 5 if is_correct else 3, 8
+        elif test_type == 'memory':
+            return 3 if is_correct else 2, 10
+        elif test_type == 'reaction':
+            return 0, 0.5  # Reaction menggunakan threshold
+        return 5, 5  # Default fallback
+
 # Main Streamlit Application
 def main():
     """Main Streamlit application"""
     
-    # Header
     st.markdown('<h1 class="main-header">🏭 Fit-to-Work Voice Readiness Checker</h1>', unsafe_allow_html=True)
     
     # Initialize session state
@@ -1094,7 +1979,6 @@ def show_home_page():
     """Home page dengan overview"""
     st.markdown("### 🎯 System Overview")
 
-    # Deskripsi Aplikasi
     st.markdown("#### 📋 Description")
     st.markdown("""
     **Fit-to-Work Voice Readiness Checker** adalah sistem otomatis untuk mengevaluasi kesiapan pekerja 
@@ -1119,7 +2003,6 @@ def show_home_page():
         - Permission untuk akses microphone
         """)
     
-    # Quick start buttons
     st.markdown("#### 🚀 Quick Start")
     col1, col2, col3 = st.columns(3)
     
@@ -1138,7 +2021,6 @@ def show_home_page():
             st.session_state.current_page = 'complete'
             st.rerun()
     
-    # System status
     st.markdown("#### 🔧 System Status")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -1205,10 +2087,8 @@ def show_real_voice_analysis():
                 temp_audio_file = checker.save_temp_audio(audio_data)
                 
                 try:
-                    # Continue with processing...
                     process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
                 finally:
-                    # Cleanup
                     checker.cleanup_temp_file(temp_audio_file)
     else:
         # Cloud mode - use st.audio_input
@@ -1248,7 +2128,6 @@ def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file
     emotion_scores = checker.analyze_emotion_patterns(features)
     voice_result = checker.determine_work_readiness(emotion_scores, pronunciation_score)  # Pass pronunciation score
     
-    # Display results
     st.markdown("#### 📊 Results")
     
     col1, col2 = st.columns(2)
@@ -1297,8 +2176,31 @@ def process_voice_analysis(checker, target_sentence, audio_data, temp_audio_file
         st.metric("Speech Rate", f"{features['speech_rate']:.2f}")
 
 def show_real_cognitive_tests():
-    """cognitive tests page"""
+    """cognitive tests page dengan peringatan waktu untuk semua tes"""
     st.markdown("### 🧠 Cognitive Assessment")
+    
+    with st.expander("📋 PENTING - Bagaimana Tes Kognitif Dinilai", expanded=True):
+        st.markdown("""
+        ### Sistem Penilaian Berbasis Waktu
+        
+        Semua tes kognitif mengukur **kecepatan** dan **akurasi** secara bersamaan:
+        
+        | Tes | Mulai Dari | Penalti Waktu (Benar) | Penalti Waktu (Salah) | Target Waktu Ideal |
+        | --- | --- | --- | --- | --- |
+        | Math | 100 poin | -10 poin/detik | -5 poin/detik | < 3 detik |
+        | Sequence | 100 poin | -8 poin/detik | -4 poin/detik | < 5 detik |
+        | Attention | 100 poin | -5 poin/detik | -3 poin/detik | < 8 detik |
+        | Memory | 100 poin | -3 poin/detik | -2 poin/detik | < 10 detik |
+        | Reaction | Threshold | Berdasarkan waktu reaksi | N/A | < 0.5 detik |
+        
+        **Contoh:** Pada tes matematika, jawaban benar dalam 3 detik mendapat skor 70/100, sedangkan jawaban benar dalam 7 detik hanya mendapat 30/100.
+        
+        **Visual timer** akan muncul saat tes dimulai untuk menunjukkan waktu yang berjalan. Perhatikan timer ini!
+        """)
+        
+        st.info("""
+        **⚠️ PERHATIAN:** Timer mulai berjalan segera setelah tes dimuat. Bersiaplah sebelum memulai!
+        """)
     
     cognitive_assessment = RealCognitiveAssessment()
     
@@ -1317,6 +2219,43 @@ def show_real_cognitive_tests():
 
     st.markdown(f"#### {selected_test_name}")
     
+    # Display test-specific time info
+    if selected_test == 'attention':
+        st.markdown("""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> -5 poin per detik (benar), -3 poin per detik (salah)
+            <br>Target waktu ideal: <8 detik
+        </div>
+        """, unsafe_allow_html=True)
+    elif selected_test == 'memory':
+        st.markdown("""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> -3 poin per detik (benar), -2 poin per detik (salah)
+            <br>Target waktu ideal: <10 detik
+        </div>
+        """, unsafe_allow_html=True)
+    elif selected_test == 'reaction':
+        st.markdown("""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> Skor berdasarkan waktu reaksi
+            <br>Target waktu ideal: <0.5 detik (Excellent), <1.0 detik (Good)
+        </div>
+        """, unsafe_allow_html=True)
+    elif selected_test == 'math':
+        st.markdown("""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> -10 poin per detik (benar), -5 poin per detik (salah)
+            <br>Target waktu ideal: <3 detik
+        </div>
+        """, unsafe_allow_html=True)
+    else:  # sequence
+        st.markdown("""
+        <div class="timer-info">
+            ⏱️ <strong>Info Waktu:</strong> -8 poin per detik (benar), -4 poin per detik (salah)
+            <br>Target waktu ideal: <5 detik
+        </div>
+        """, unsafe_allow_html=True)
+    
     # Run the selected test
     if selected_test == 'attention':
         result = cognitive_assessment.attention_test_streamlit()
@@ -1332,11 +2271,271 @@ def show_real_cognitive_tests():
     if result:
         st.success(f"Test completed! Score: {result['score']}/100")
         
-        # Save individual test result
+        time_impact = 0
+        if selected_test == 'math':
+            time_impact = result['response_time'] * 10 if result['correct'] else result['response_time'] * 5
+        elif selected_test == 'sequence':
+            time_impact = result['response_time'] * 8 if result['correct'] else result['response_time'] * 4
+        elif selected_test == 'attention':
+            time_impact = result['response_time'] * 5 if result['correct'] else result['response_time'] * 3
+        elif selected_test == 'memory':
+            time_impact = result['response_time'] * 3 if result['correct'] else result['response_time'] * 2
+        
+        if selected_test != 'reaction':
+            # Ensure time_class is always defined
+            time_class = "time-medium"
+            if selected_test == 'math':
+                time_class = "time-fast" if result['response_time'] < 3 else "time-medium" if result['response_time'] < 6 else "time-slow"
+            elif selected_test == 'sequence':
+                time_class = "time-fast" if result['response_time'] < 5 else "time-medium" if result['response_time'] < 8 else "time-slow"
+            elif selected_test == 'attention':
+                time_class = "time-fast" if result['response_time'] < 8 else "time-medium" if result['response_time'] < 12 else "time-slow"
+            elif selected_test == 'memory':
+                time_class = "time-fast" if result['response_time'] < 10 else "time-medium" if result['response_time'] < 15 else "time-slow"
+            # No else needed, time_class already set to "time-medium"
+            
+            # Ensure time_class is always defined
+            time_class = "time-medium"
+            if selected_test == 'math':
+                time_class = "time-fast" if result['response_time'] < 3 else "time-medium" if result['response_time'] < 6 else "time-slow"
+            elif selected_test == 'sequence':
+                time_class = "time-fast" if result['response_time'] < 5 else "time-medium" if result['response_time'] < 8 else "time-slow"
+            elif selected_test == 'attention':
+                time_class = "time-fast" if result['response_time'] < 8 else "time-medium" if result['response_time'] < 12 else "time-slow"
+            elif selected_test == 'memory':
+                time_class = "time-fast" if result['response_time'] < 10 else "time-medium" if result['response_time'] < 15 else "time-slow"
+            # No else needed, time_class already set to "time-medium"
+            
+            st.markdown(f"""
+            <div class="time-result {time_class}">
+                ⏱️ <strong>Analisis Waktu:</strong>
+                <br>Waktu pengerjaan: {result['response_time']:.2f} detik
+                <br>Penalti waktu: -{int(time_impact)} poin
+                <br>Skor maksimal tanpa penalti waktu: {min(100, result['score'] + int(time_impact))}/100
+                <br>Skor akhir dengan penalti waktu: {result['score']}/100
+            </div>
+            """, unsafe_allow_html=True)
+            
+            max_score = min(100, result['score'] + int(time_impact))
+            final_score = result['score']
+            
+            st.markdown(f"""
+            <div class="score-impact">
+                <div class="max-score">Max: {max_score}</div>
+                <div class="time-penalty">-{int(time_impact)}</div>
+                <div class="final-score">Final: {final_score}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if selected_test == 'math':
+                st.info("⏱️ Target waktu ideal untuk Math Test: < 3 detik")
+            elif selected_test == 'sequence':
+                st.info("⏱️ Target waktu ideal untuk Sequence Test: < 5 detik")
+            elif selected_test == 'attention':
+                st.info("⏱️ Target waktu ideal untuk Attention Test: < 8 detik")
+            elif selected_test == 'memory':
+                st.info("⏱️ Target waktu ideal untuk Memory Test: < 10 detik")
+        
         if 'individual_test_results' not in st.session_state:
             st.session_state.individual_test_results = []
         
         st.session_state.individual_test_results.append(result)
+
+def run_cognitive_battery_streamlit(self, num_tests=3):
+    """Run cognitive battery dengan Streamlit UI dan peringatan waktu untuk semua tes"""
+    st.subheader("🧠 COGNITIVE ASSESSMENT BATTERY")
+    
+    st.markdown("""
+    <div class="timer-warning">
+        ⏱️ PENTING: Semua tes kognitif menggunakan WAKTU dalam penilaian!
+        <br>Kecepatan dan akurasi sama-sama penting. Semakin cepat menjawab dengan benar, semakin tinggi skor Anda.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.expander("ℹ️ Pengaruh Waktu pada Skor"):
+        st.markdown("""
+        ### Pengaruh Waktu pada Skor Tes
+        
+        Setiap tes kognitif memiliki penalti waktu yang berbeda:
+        
+        | Tes | Penalti Waktu (Jawaban Benar) | Penalti Waktu (Jawaban Salah) |
+        | --- | --- | --- |
+        | Attention | -5 poin per detik | -3 poin per detik |
+        | Memory | -3 poin per detik | -2 poin per detik |
+        | Math | -10 poin per detik | -5 poin per detik |
+        | Sequence | -8 poin per detik | -4 poin per detik |
+        | Reaction | Berdasarkan threshold waktu | N/A |
+        
+        **Contoh:** Pada tes matematika, jika Anda menjawab dengan benar dalam 3 detik, Anda akan kehilangan 30 poin dari skor maksimum 100, sehingga mendapatkan skor 70.
+        """)
+    
+    if 'cognitive_tests_completed' not in st.session_state:
+        st.session_state.cognitive_tests_completed = []
+        available_tests = list(self.cognitive_tests.keys())
+        st.session_state.selected_tests = random.sample(available_tests, min(num_tests, len(available_tests)))
+        st.session_state.current_test_index = 0
+    
+    total_tests = len(st.session_state.selected_tests)
+    current_index = st.session_state.current_test_index
+    
+    if current_index < total_tests:
+        st.write(f"Test {current_index + 1}/{total_tests}")
+        
+        # Progress bar
+        progress = current_index / total_tests
+        st.progress(progress)
+        
+        # Run current test
+        test_name = st.session_state.selected_tests[current_index]
+        
+        # Display time info for current test
+        if test_name == 'attention':
+            st.markdown("""
+            <div class="timer-info">
+                ⏱️ <strong>Info Waktu:</strong> -5 poin per detik (benar), -3 poin per detik (salah)
+                <br>Target waktu ideal: <8 detik
+            </div>
+            """, unsafe_allow_html=True)
+        elif test_name == 'memory':
+            st.markdown("""
+            <div class="timer-info">
+                ⏱️ <strong>Info Waktu:</strong> -3 poin per detik (benar), -2 poin per detik (salah)
+                <br>Target waktu ideal: <10 detik
+            </div>
+            """, unsafe_allow_html=True)
+        elif test_name == 'reaction':
+            st.markdown("""
+            <div class="timer-info">
+                ⏱️ <strong>Info Waktu:</strong> Skor berdasarkan waktu reaksi
+                <br>Target waktu ideal: <0.5 detik (Excellent), <1.0 detik (Good)
+            </div>
+            """, unsafe_allow_html=True)
+        elif test_name == 'math':
+            st.markdown("""
+            <div class="timer-info">
+                ⏱️ <strong>Info Waktu:</strong> -10 poin per detik (benar), -5 poin per detik (salah)
+                <br>Target waktu ideal: <3 detik
+            </div>
+            """, unsafe_allow_html=True)
+        else:  # sequence
+            st.markdown("""
+            <div class="timer-info">
+                ⏱️ <strong>Info Waktu:</strong> -8 poin per detik (benar), -4 poin per detik (salah)
+                <br>Target waktu ideal: <5 detik
+            </div>
+            """, unsafe_allow_html=True)
+        
+        result = self.cognitive_tests[test_name]()
+        
+        if result:
+            # Show time analysis before continuing
+            if test_name != 'reaction':
+                time_impact = 0
+                time_class = "time-medium"  # default
+                if test_name == 'math':
+                    time_impact = result['response_time'] * 10 if result['correct'] else result['response_time'] * 5
+                    time_class = "time-fast" if result['response_time'] < 3 else "time-medium" if result['response_time'] < 6 else "time-slow"
+                elif test_name == 'sequence':
+                    time_impact = result['response_time'] * 8 if result['correct'] else result['response_time'] * 4
+                    time_class = "time-fast" if result['response_time'] < 5 else "time-medium" if result['response_time'] < 8 else "time-slow"
+                elif test_name == 'attention':
+                    time_impact = result['response_time'] * 5 if result['correct'] else result['response_time'] * 3
+                    time_class = "time-fast" if result['response_time'] < 8 else "time-medium" if result['response_time'] < 12 else "time-slow"
+                elif test_name == 'memory':
+                    time_impact = result['response_time'] * 3 if result['correct'] else result['response_time'] * 2
+                    time_class = "time-fast" if result['response_time'] < 10 else "time-medium" if result['response_time'] < 15 else "time-slow"
+                
+                # Show time impact
+                st.markdown(f"""
+                <div class="time-result {time_class}">
+                    ⏱️ <strong>Analisis Waktu:</strong> {result['response_time']:.2f} detik (-{int(time_impact)} poin)
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.session_state.cognitive_tests_completed.append(result)
+            st.session_state.current_test_index += 1
+            
+            if st.session_state.current_test_index < total_tests:
+                if st.button("Lanjut ke test berikutnya"):
+                    st.rerun()
+            else:
+                # All tests completed
+                st.success("🎉 Semua cognitive tests selesai!")
+                
+                # Calculate overall cognitive score
+                results = st.session_state.cognitive_tests_completed
+                total_score = sum(r['score'] for r in results)
+                avg_score = total_score / len(results)
+                
+                # Calculate average response time
+                avg_time = sum(r['response_time'] for r in results) / len(results)
+                
+                # Determine cognitive status
+                if avg_score >= 80:
+                    status = "🟢 COGNITIVE EXCELLENT"
+                    recommendation = "Kesiapan mental sangat baik untuk bekerja"
+                elif avg_score >= 65:
+                    status = "🟡 COGNITIVE GOOD"
+                    recommendation = "Kesiapan mental baik, bisa bekerja normal"
+                elif avg_score >= 50:
+                    status = "🟠 COGNITIVE MODERATE"
+                    recommendation = "Perlu perhatian extra, hindari tugas complex"
+                else:
+                    status = "🔴 COGNITIVE POOR"
+                    recommendation = "Sebaiknya istirahat, tidak disarankan bekerja"
+                
+                time_class = "time-fast" if avg_time < 5 else "time-medium" if avg_time < 10 else "time-slow"
+                
+                st.markdown(f"""
+                <div class="time-result {time_class}">
+                    ⏱️ <strong>Analisis Waktu Rata-Rata:</strong> {avg_time:.2f} detik
+                </div>
+                """, unsafe_allow_html=True)
+                
+                cognitive_summary = {
+                    'total_tests': len(results),
+                    'individual_results': results,
+                    'average_score': round(avg_score, 1),
+                    'average_time': round(avg_time, 2),
+                    'total_score': total_score,
+                    'status': status,
+                    'recommendation': recommendation,
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                return cognitive_summary
+    else:
+        # All tests completed, return summary
+        results = st.session_state.cognitive_tests_completed
+        total_score = sum(r['score'] for r in results)
+        avg_score = total_score / len(results)
+        avg_time = sum(r['response_time'] for r in results) / len(results)
+        
+        if avg_score >= 80:
+            status = "🟢 COGNITIVE EXCELLENT"
+            recommendation = "Kesiapan mental sangat baik untuk bekerja"
+        elif avg_score >= 65:
+            status = "🟡 COGNITIVE GOOD"
+            recommendation = "Kesiapan mental baik, bisa bekerja normal"
+        elif avg_score >= 50:
+            status = "🟠 COGNITIVE MODERATE"
+            recommendation = "Perlu perhatian extra, hindari tugas complex"
+        else:
+            status = "🔴 COGNITIVE POOR"
+            recommendation = "Sebaiknya istirahat, tidak disarankan bekerja"
+        
+        return {
+            'total_tests': len(results),
+            'individual_results': results,
+            'average_score': round(avg_score, 1),
+            'average_time': round(avg_time, 2),
+            'total_score': total_score,
+            'status': status,
+            'recommendation': recommendation,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    return None
 
 def show_real_complete_assessment():
     """complete assessment workflow"""
@@ -1393,11 +2592,9 @@ def show_real_complete_assessment():
             
             if audio_data is not None:
                 try:
-                    # Ensure we have a temp file
                     if temp_audio_file is None:
                         temp_audio_file = checker.save_temp_audio(audio_data)
                     
-                    # Process voice analysis
                     process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file)
                 finally:
                     # Cleanup handled in process_complete_voice_analysis
@@ -1421,7 +2618,6 @@ def show_real_complete_assessment():
 
 def process_complete_voice_analysis(checker, target_sentence, audio_data, temp_audio_file):
     """Process voice analysis for complete assessment"""
-    # Ensure we have a valid temp file
     if temp_audio_file is None and audio_data is not None:
         temp_audio_file = checker.save_temp_audio(audio_data)
     
@@ -1461,7 +2657,6 @@ def process_complete_voice_analysis(checker, target_sentence, audio_data, temp_a
             st.rerun()
             
     finally:
-        # Clean up temp file
         checker.cleanup_temp_file(temp_audio_file)
 
 def show_final_assessment_results():
@@ -1588,8 +2783,7 @@ def show_results_dashboard():
             st.metric("Latest vs Previous", f"{latest_score:.1f}", delta=f"{delta:+.1f}")
         else:
             st.metric("Latest Score", f"{df['final_score'].iloc[-1]:.1f}")
-    
-    # Score trends
+
     st.markdown("#### 📈 Score Trends")
     
     fig = go.Figure()
